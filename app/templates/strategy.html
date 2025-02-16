@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
+    {% if thread %}Bot running since {{thread.run_since | format_timestamp }}{% else%}Bot not running{% endif %}
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col">
+            {% from 'bootstrap4/form.html' import render_form %}
+            {{ render_form(form,button_map={'submit': 'primary', 'start': 'success', 'stop': 'danger'}) }}
+        </div>
+        <div class="col-8">
+            {% if backtest_strategy is not none %}
+            <table class="table table-striped table-hover">
+                <thead class="table-success">
+                    <tr>
+                        <th>Time</th>
+                        <th>Name</th>
+                        <th>Open</th>
+                        <th>Qty</th>
+                        <th>Close</th>
+                        <th>Time</th>
+                        <th>P&L</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for trade in backtest_strategy.open_trades %}
+                    <tr>
+                        <td>{{trade.open_time | format_timestamp }}</td>
+                        <td>{{trade.open_name }}</td>
+                        <td>{{trade.open_price}}</td>
+                        <td>{{trade.qty}}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% if candles is not none %}
+            <table class="table table-striped table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Time</th>
+                        <th>Low</th>
+                        <th>Close</th>
+                        <th>RSI</th>
+                        <th>Pivot</th>
+                        <th>Trade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for candle in candles.history %}
+                    <tr>
+                        <td>{{candle['Time'] | format_timestamp }}</td>
+                        <td>{{candle['Low']}}</td>
+                        <td>{{candle['Close']}}</td>
+                        <td>{{candle['RSI']}}</td>
+                        <td>{{candle['Pivot']['low'] if 'Pivot' in candle and 'low' in candle['Pivot']}}</td>
+                        <td>{{candle['Trade'] if 'Trade' in candle}}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+
+
+            <table class="table table-striped table-hover">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Time</th>
+                        <th>Name</th>
+                        <th>Open</th>
+                        <th>Qty</th>
+                        <th>Name</th>
+                        <th>Close</th>
+                        <th>Time</th>
+                        <th>P&L</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for trade in backtest_strategy.closed_trades %}
+                    <tr>
+                        <td>{{trade.open_time | format_timestamp }}</td>
+                        <td>{{trade.open_name}}</td>
+                        <td>{{trade.open_price}}</td>
+                        <td>{{trade.qty}}</td>
+                        <td>{{trade.close_name}}</td>
+                        <td>{{trade.close_price}}</td>
+                        <td>{{trade.close_time | format_timestamp }}</td>
+                        <td>{{trade.get_pnl()|round(2)}}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

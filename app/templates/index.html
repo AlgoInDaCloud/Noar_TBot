@@ -1,0 +1,31 @@
+<style>
+    td { padding-right: 5px;padding-left: 5px;  }
+</style>
+{% extends "base.html" %}
+
+{% block content %}
+    {% for bot in threads %}
+    <div class="alert {% if bot %}alert-success{% else%}alert-danger{% endif %}">
+        <h6>{% if bot %}<a href="/{{bot.name|replace('-bot','')|lower}}">{{bot.name}}</a> running since {{bot.run_since | format_timestamp }}{% else%}Bot not running{% endif %}</h6>
+        {% if  bot.strategy.strategy is not none %}
+        <div class="row">
+            <div class="col">
+                <ul class="list-group">
+                    <li class="list-group-item fw-bold {% if bot.strategy.strategy.get_profit()>0 %}text-success{% else %}text-danger{% endif %}">Global P&L : {{bot.strategy.strategy.get_profit()|round(2)}}$ ({{(bot.strategy.strategy.get_pnl()*100)|round(1)}}%)</li>
+                    <li class="list-group-item fw-bold {% if bot.strategy.strategy.get_open_profit()>0 %}text-success{% else %}text-danger{% endif %}">Open P&L : {{bot.strategy.strategy.get_open_profit()|round(2)}}$ ({{(bot.strategy.strategy.get_open_pnl()*100)|round(1)}}%)</li>
+                    <li class="list-group-item fw-bold {% if bot.strategy.strategy.get_realised_profit()>0 %}text-success{% else %}text-danger{% endif %}">Realised P&L : {{bot.strategy.strategy.get_realised_profit()|round(2)}}$ ({{(bot.strategy.strategy.get_realised_pnl()*100)|round(1)}}%)</li>
+                </ul>
+            </div>
+            <div class="col">
+                <ul class="list-group">
+                    <li class="list-group-item fw-bold text-success">Max runup : {% if bot.strategy.strategy.get_runup() is not none %}{{(bot.strategy.strategy.get_runup())|round(2)}}%{% else %}None{%endif%}</li>
+                    <li class="list-group-item fw-bold text-danger">Max drawdown : {% if bot.strategy.strategy.get_drawdown() is not none %}{{(bot.strategy.strategy.get_drawdown())|round(2)}}%{% else %}None{%endif%}</li>
+                    <li class="list-group-item fw-bold text-danger">Liquidation price : {% if bot.strategy.strategy.position is not none %}{{(bot.strategy.strategy.liquidation_price)|round(2)}}${% else %}None{%endif%}</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endfor %}
+{% endblock %}

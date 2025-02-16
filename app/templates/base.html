@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+    <head>
+        {% block head %}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
+        <link rel="shortcut icon" href="/static/favicon.ico">
+
+        {% block styles %}
+            <!-- Bootstrap CSS -->
+            {{ bootstrap.load_css() }}
+        {% endblock %}
+        {% if title %}
+        <title>{{ title }} - Bot</title>
+        {% else %}
+        <title>Welcome to Bot PF</title>
+        {% endif %}
+        {% endblock %}
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="container-fluid">
+                <a href="#" class="navbar-brand">{{ title }}</a>
+                <div class="collapse navbar-collapse">
+                    <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/martingale">Martingale</a></li>
+                    </ul>
+                    {% if current_user.is_anonymous %}
+                    <div class="ms-auto"><a class="nav-link" href="{{ url_for('login') }}">Login</a></div>
+                    {% else %}
+                    <div class="ms-auto"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></div>
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+        {% from 'bootstrap4/utils.html' import render_messages %}
+        {{ render_messages() }}
+        {% block content %}{% endblock %}
+        {% block scripts %}
+            <!-- Optional JavaScript -->
+            {{ bootstrap.load_js() }}
+        {% endblock %}
+    </body>
+</html>
