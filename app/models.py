@@ -37,13 +37,14 @@ class Candles:
         self.api = api
         self.symbol = symbol
         self.timeframe = timeframe
-        self.history = self.get_candles_history(min_bars_back,indicators)
+        self.history = self.get_candles_history(min_bars_back,indicators,True)
 
     # Retrieve candle history until now
 
-    def get_csv_history(self):
+    def get_csv_history(self,filter_key=None,key_min=None,key_max=None,key_value=None):
         history = csv_to_dicts(self.csv_file_path)
         history = correct_types_from_strings(history)
+
         return history
 
     def set_csv_history(self, new_lines=None):
@@ -79,8 +80,8 @@ class Candles:
             print("No missing or doubled candle")
 
 
-    def get_candles_history(self, min_bars_back,indicators):
-        history = self.get_csv_history()
+    def get_candles_history(self, min_bars_back,indicators,get_whole_file=False):
+        history = self.get_csv_history(filter_key=None if get_whole_file else 'Time',key_min=None if get_whole_file else -1) #Get las candle from csv to update it
         if len(history) == 0:
             history = self.get_history_api(None, bars=min_bars_back,closed=True)
             history.reverse()
@@ -92,6 +93,7 @@ class Candles:
             history.reverse()
             self.history = history
             self.update_history(indicators)
+            #self.history = self.history[:99] #Keep last 100 bars in memory
         #if indicators is not None:
         #    self.calc_indicators(indicators)
             '''
@@ -110,23 +112,20 @@ class Candles:
         self.history = new_lines + self.history
         self.calc_indicators(indicators)
         self.set_csv_history(list(self.history[:lines_to_save]))
-        '''Recalculating partially causes imprecision
-        new_lines=self.calc_rsi(new_lines,list(reversed(self.history)))
-        new_lines.reverse()
-        self.set_csv_history(new_lines)
-        self.history=new_lines+self.history
-        '''
+        del self.history[-1]
+        return lines_to_save
 
 
     def increase_history(self, since=None, bars_back=None,indicators=None):
-        print('initial_start=' + str(datetime.fromtimestamp(self.history[-1].get('Time'))))
+        self.history=self.get_candles_history(100,indicators,True)
+        #print('initial_start=' + str(datetime.fromtimestamp(self.history[-1].get('Time'))))
         older_lines = self.get_history_api(since-1, int(self.history[-1].get('Time'))-1, bars_back)
         if len(older_lines) > 0:
             older_lines.reverse()
             self.history.extend(older_lines)
             self.calc_indicators(indicators,recalculate=True)
             self.set_csv_history()
-        print('final_start=' + str(datetime.fromtimestamp(self.history[-1].get('Time'))))
+        #print('final_start=' + str(datetime.fromtimestamp(self.history[-1].get('Time'))))
 
     def get_history_api(self, since=None, until=None, bars=None, closed=True):
         timeframe_in_seconds = self.timeframe_to_seconds(self.timeframe)  # candle duration in seconds
@@ -142,36 +141,33 @@ class Candles:
             return lines_fetched
         since = int(since) if since is not None else int(until - bars * timeframe_in_seconds)
         while since + max_delay < until:
-            print("Since=", datetime.fromtimestamp(since), "Until=", datetime.fromtimestamp(until), "Candles=",
-                  candles_to_fetch)
+            #print("Since=", datetime.fromtimestamp(since), "Until=", datetime.fromtimestamp(until), "Candles=",candles_to_fetch)
             new_lines = self.api.get_ohlc(self.symbol, self.timeframe, since=since,until=until,limit=(candles_to_fetch if candles_to_fetch < 1000 else 1000))
             lines_fetched[:0] = new_lines
             candles_to_fetch -= len(new_lines)
             if len(new_lines) == 0 or candles_to_fetch==0: break
-            print("NL=", len(new_lines),datetime.fromtimestamp(new_lines[0].get('Time')),
-                  datetime.fromtimestamp(new_lines[-1].get('Time')))
+            #print("NL=", len(new_lines),datetime.fromtimestamp(new_lines[0].get('Time')),datetime.fromtimestamp(new_lines[-1].get('Time')))
             until = int(lines_fetched[0].get('Time'))
             sleep(1)
-        if len(lines_fetched) > 0:
-            print("fetched=",datetime.fromtimestamp(lines_fetched[0].get('Time')),
-                  datetime.fromtimestamp(lines_fetched[-1].get('Time')))
-        else:
-            print("no lines fetched")
+        #if len(lines_fetched) > 0:
+        #    print("fetched=",datetime.fromtimestamp(lines_fetched[0].get('Time')),
+        #          datetime.fromtimestamp(lines_fetched[-1].get('Time')))
+        #else:
+        #    print("no lines fetched")
         return lines_fetched
 
     def calc_indicators(self, indicators: Dict, since=None,recalculate=False):
         if 'RSI' in indicators:
-            if since is None and not recalculate:
-                last_empty = last_empty_index(self.history, 'RSI')
-                since_empty=self.history[last_empty]['Time']
-                print('RSI_since=',datetime.fromtimestamp(since_empty))
+            #if since is None and not recalculate:
+            #    last_empty = last_empty_index(self.history, 'RSI')
+            #    since_empty=self.history[last_empty]['Time']
+            #    print('RSI_since=',datetime.fromtimestamp(since_empty))
             self.calc_rsi(length=indicators['RSI'], since=since)
         if 'PivotsHL' in indicators:
-            if since is None and not recalculate:
-                last_empty = last_empty_index(self.history, 'Pivot')
-                since_empty=self.history[last_empty]['Time']
-                print('Pivot_since=',datetime.fromtimestamp(since_empty))
-
+            #if since is None and not recalculate:
+            #    last_empty = last_empty_index(self.history, 'Pivot')
+            #    since_empty=self.history[last_empty]['Time']
+            #    print('Pivot_since=',datetime.fromtimestamp(since_empty))
             self.calc_pivots_hl(bars=indicators['PivotsHL'],since=since)
         return
 

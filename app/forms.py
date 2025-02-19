@@ -3,18 +3,19 @@ from wtforms import StringField, PasswordField, BooleanField, SubmitField
 from wtforms.fields.choices import SelectField
 from wtforms.fields.datetime import DateTimeLocalField
 from wtforms.fields.numeric import IntegerField, FloatField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, Regexp
+
 
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
+    username = StringField('Username', validators=[DataRequired(),Regexp('\w{5,}',message="5 or more alphanumeric")])
+    password = PasswordField('Password', validators=[DataRequired(),Regexp('(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[\?:,/]){8,}')])
     remember_me = BooleanField('Remember Me')
     submit = SubmitField('Sign In')
 
 class MartingaleParameter(FlaskForm):
-    API = SelectField('API',choices=[('bitget', 'Bitget')])
-    symbol=SelectField("Symbol", choices=[('BTC/USDT:USDT','BTCUSDT Futures')])
-    timeframe=SelectField('Timeframe', choices=[('1m','1m'),('5m','5m'),('15m','15m'),('30m','30m'),('1h','1h'),('4h','4h'),('1d','1d')])
+    API = SelectField('API',choices=[('bitget', 'Bitget')],validators=[DataRequired()])
+    symbol=SelectField("Symbol", choices=[('BTC/USDT:USDT','BTCUSDT Futures')],validators=[DataRequired()])
+    timeframe=SelectField('Timeframe', choices=[('1m','1m'),('5m','5m'),('15m','15m'),('30m','30m'),('1h','1h'),('4h','4h'),('1d','1d')],validators=[DataRequired()])
     martingale_number=IntegerField('Martingale number',[DataRequired()])
     leverage=IntegerField('Leverage',[DataRequired()])
     pivot_width=IntegerField('Pivot width',[DataRequired()])

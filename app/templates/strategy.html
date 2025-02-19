@@ -1,27 +1,53 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
-    {% if thread %}Bot running since {{thread.run_since | format_timestamp }}{% else%}Bot not running{% endif %}
-</div>
-<div class="container-fluid">
-    <div class="row">
-        <div class="col">
+
+<div class="container-fluid vh-100">
+    <div class="row h-100">
+        <div class="p-3 col-2 bg-dark text-white">
+            <h1>Parameters</h1>
+            <hr>
             {% from 'bootstrap4/form.html' import render_form %}
             {{ render_form(form,button_map={'submit': 'primary', 'start': 'success', 'stop': 'danger'}) }}
         </div>
-        <div class="col-8">
+        <div class="col-10">
+            <div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
+                <h6>{% if thread %}Bot running since {{thread.run_since | format_timestamp }}{% else%}Bot not running{% endif %}</h6>
+                {% if backtest_strategy is not none %}
+                <div class="row">
+                    <div class="col">
+                        <ul class="list-group">
+                            <li class="list-group-item fw-bold {% if backtest_strategy.get_profit()>0 %}text-success{% else %}text-danger{% endif %}">Global P&L : {{backtest_strategy.get_profit()|round(2)}}$ ({{(backtest_strategy.get_pnl()*100)|round(1)}}%)</li>
+                            <li class="list-group-item fw-bold {% if backtest_strategy.get_open_profit()>0 %}text-success{% else %}text-danger{% endif %}">Open P&L : {{backtest_strategy.get_open_profit()|round(2)}}$ ({{(backtest_strategy.get_open_pnl()*100)|round(1)}}%)</li>
+                            <li class="list-group-item fw-bold {% if backtest_strategy.get_realised_profit()>0 %}text-success{% else %}text-danger{% endif %}">Realised P&L : {{backtest_strategy.get_realised_profit()|round(2)}}$ ({{(backtest_strategy.get_realised_pnl()*100)|round(1)}}%)</li>
+                        </ul>
+                    </div>
+                    <div class="col">
+                        <ul class="list-group">
+                            <li class="list-group-item fw-bold text-success">Max runup : {% if backtest_strategy.get_runup() is not none %}{{(backtest_strategy.get_runup())|round(2)}}%{% else %}None{%endif%}</li>
+                            <li class="list-group-item fw-bold text-danger">Max drawdown : {% if backtest_strategy.get_drawdown() is not none %}{{(backtest_strategy.get_drawdown())|round(2)}}%{% else %}None{%endif%}</li>
+                            <li class="list-group-item fw-bold text-danger">Liquidation price : {% if backtest_strategy.liquidation_price is not none %}{{(backtest_strategy.liquidation_price)|round(2)}}${% else %}None{%endif%}</li>
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+            </div>
             {% if backtest_strategy is not none %}
-            <table class="table table-striped table-hover">
-                <thead class="table-success">
+            <table class="table table-striped table-hover caption-top">
+                <caption>Open trades :</caption>
+                <thead class="table-primary">
                     <tr>
-                        <th>Time</th>
-                        <th>Name</th>
-                        <th>Open</th>
-                        <th>Qty</th>
-                        <th>Close</th>
-                        <th>Time</th>
-                        <th>P&L</th>
+                        <th class="col-2">Time</th>
+                        <th class="col-1">Name</th>
+                        <th class="col-1">Open</th>
+                        <th class="col-1">Qty</th>
+                        <th class="col-1">Name</th>
+                        <th class="col-1">Close</th>
+                        <th class="col-2">Time</th>
+                        <th class="col-1">Runup</th>
+                        <th class="col-1">Drawdown</th>
+                        <th class="col-1">P&L</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,49 +60,48 @@
                         <td></td>
                         <td></td>
                         <td></td>
+                        <td>{% if trade.get_runup() is not none %}{{(trade.get_runup()*100)|round(2)}}%{% else %}None{%endif%}</td>
+                        <td>{% if trade.get_drawdown() is not none %}{{(trade.get_drawdown()*100)|round(2)}}%{% else %}None{%endif%}</td>
+                        <td class="fw-bold {% if trade.get_pnl(backtest_strategy.last_known_price)>0 %}text-success{% else %}text-danger{% endif %}">{{trade.get_profit(backtest_strategy.last_known_price)|round(2)}}$ ({{(trade.get_pnl(backtest_strategy.last_known_price)*100)|round(2)}}%)</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            {% if candles is not none %}
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover caption-top">
+                <caption>Open orders :</caption>
                 <thead class="table-primary">
                     <tr>
-                        <th>Time</th>
-                        <th>Low</th>
-                        <th>Close</th>
-                        <th>RSI</th>
-                        <th>Pivot</th>
-                        <th>Trade</th>
+                        <th class="col-1">Name</th>
+                        <th class="col-1">Side</th>
+                        <th class="col-1">Price</th>
+                        <th class="col-1">Qty</th>
                     </tr>
                 </thead>
                 <tbody>
-                {% for candle in candles.history %}
+                {% for order in backtest_strategy.open_orders %}
                     <tr>
-                        <td>{{candle['Time'] | format_timestamp }}</td>
-                        <td>{{candle['Low']}}</td>
-                        <td>{{candle['Close']}}</td>
-                        <td>{{candle['RSI']}}</td>
-                        <td>{{candle['Pivot']['low'] if 'Pivot' in candle and 'low' in candle['Pivot']}}</td>
-                        <td>{{candle['Trade'] if 'Trade' in candle}}</td>
+                        <td>{{order.name}}</td>
+                        <td>{% if order.long %}Buy{%else%}Sell{%endif%}{% if order.stop %} stop{%endif%}</td>
+                        <td>{{order.limit}}</td>
+                        <td>{{order.qty}}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            {% endif %}
-
-
-            <table class="table table-striped table-hover">
+            <table class="table table-striped table-hover caption-top">
+                <caption>Closed trades :</caption>
                 <thead class="table-primary">
                     <tr>
-                        <th>Time</th>
-                        <th>Name</th>
-                        <th>Open</th>
-                        <th>Qty</th>
-                        <th>Name</th>
-                        <th>Close</th>
-                        <th>Time</th>
-                        <th>P&L</th>
+                        <th class="col-2">Time</th>
+                        <th class="col-1">Name</th>
+                        <th class="col-1">Open</th>
+                        <th class="col-1">Qty</th>
+                        <th class="col-1">Name</th>
+                        <th class="col-1">Close</th>
+                        <th class="col-2">Time</th>
+                        <th class="col-1">Runup</th>
+                        <th class="col-1">Drawdown</th>
+                        <th class="col-1">P&L</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -89,7 +114,51 @@
                         <td>{{trade.close_name}}</td>
                         <td>{{trade.close_price}}</td>
                         <td>{{trade.close_time | format_timestamp }}</td>
-                        <td>{{trade.get_pnl()|round(2)}}</td>
+                        <td>{% if trade.get_runup() is not none %}{{(trade.get_runup()*100)|round(2)}}%{% else %}None{%endif%}</td>
+                        <td>{% if trade.get_drawdown() is not none %}{{(trade.get_drawdown()*100)|round(2)}}%{% else %}None{%endif%}</td>
+                        <td class="fw-bold {% if trade.get_profit()>0 %}text-success{% else %}text-danger{% endif %}">{{trade.get_profit()|round(2)}}$ ({{(trade.get_pnl()*100)|round(2)}}%)</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            {% if candles is not none %}
+            {% set pages=((candles.history|length)/50)|int %}
+            {% if (candles.history|length)%50 > 0 %}
+                {% set pages=pages +1 %}
+            {%endif%}
+            {% if request.args.get('page') is none%}
+                {% set page=0 %}
+                {% set start=0 %}
+            {%else%}
+                {% set page=request.args.get('page')|int %}
+                {% set start=request.args.get('page')|int * 50 %}
+            {%endif%}
+            <table class="table table-striped table-hover caption-top">
+                <caption>Candles history :
+                    <select onchange="document.location.href = '?page=' + this.value">
+                        {% for select_page in range(pages) %}<option value="{{select_page}}" {% if select_page==page %}selected{%endif%}>{{candles.history[select_page*50]['Time'] | format_timestamp}} - {{candles.history[[select_page*50+49,candles.history|length -1]|min]['Time'] | format_timestamp}}</option>{%endfor%}
+                    </select>
+                </caption>
+                <thead class="table-primary">
+                    <tr>
+                        <th>Time</th>
+                        <th>Low</th>
+                        <th>Close</th>
+                        <th>RSI</th>
+                        <th>Pivot</th>
+                        <th>Trade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {%for candle in candles.history[start:start+50] %}
+                    <tr class="{{start}} {{start+49}}">
+                        <td>{{candle['Time'] | format_timestamp }}</td>
+                        <td>{{candle['Low']}}</td>
+                        <td>{{candle['Close']}}</td>
+                        <td>{{candle['RSI']}}</td>
+                        <td>{{candle['Pivot']['low'] if 'Pivot' in candle and 'low' in candle['Pivot']}}</td>
+                        <td>{{candle['Trade'] if 'Trade' in candle}}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
@@ -98,6 +167,4 @@
         </div>
     </div>
 </div>
-
-
 {% endblock %}

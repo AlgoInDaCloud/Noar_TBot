@@ -1,5 +1,4 @@
 import logging
-#logging.basicConfig(filename='app/logs/general.log', filemode='a')
 
 
 def setup_logger(name, log_file, level=logging.INFO):

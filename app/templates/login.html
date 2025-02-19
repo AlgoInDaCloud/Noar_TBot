@@ -15,7 +15,7 @@
             {{ form.password.label }}<br>
             {{ form.password(size=32) }}<br>
             {% for error in form.password.errors %}
-            <span style="color: red;">[{{ error }}]</span>
+            <span style="color: red;">Invalid password</span>
             {% endfor %}
         </p>
         <p>{{ form.remember_me() }} {{ form.remember_me.label }}</p>

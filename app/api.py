@@ -5,10 +5,9 @@ from app.logging import api_logger, trade_logger
 
 
 class Api:
-    def __init__(self,exchange_name):
+    def __init__(self,exchange_name:str):
         self.exchange_name=exchange_name
         self.exchange=self.connect_api(exchange_name)
-        print(self.exchange)
         self.exchange.load_markets()
     @staticmethod
     def connect_api(api_name):
@@ -23,8 +22,6 @@ class Api:
                         'password':api_config['api_pwd'],
                         'newUpdates': False
                     })
-            print(exchange)
-
             return exchange
         except BaseException as exception:
             api_logger.exception(exception)
@@ -58,8 +55,8 @@ class Api:
             trade_logger.info(("Trade" if _type=='market' else ("Stop" if _stop else "Limit"))
                               + "order"  + " : "+_symbol+ " " + _side.capitalize() + " " + str(_qty) +" @ "+ str(_price))
             param = {}
-            match self.exchange_name:
-                case "bitget":
+            match self.exchange_name.lower():
+                case str(x) if "bitget" in x:
                     if _stop:
                         param['stopLossPrice'] = _price
                     if not _hedged:
@@ -74,10 +71,8 @@ class Api:
     def get_order(self,_id,_symbol):
         try:
             response=self.exchange.fetch_order(_id, _symbol)
-            match self.exchange_name:
-                case "bitget":
-                    # print(response)
-                    # response=response['info']
+            match self.exchange_name.lower():
+                case str(x) if "bitget" in x:
                     return {'id': response['id'], 'price': response['price'], 'avg_price': response['average'],
                             'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
                             'fee': response['fee']}
@@ -89,8 +84,8 @@ class Api:
         try:
             trade_logger.info("Edit" + "stop" if _stop else "limit" + "order"  + " : "+_symbol+ " " + _side.capitalize() + " " + str(_amount) +" @ "+ str(_price))
             param = {}
-            match self.exchange_name:
-                case "bitget":
+            match self.exchange_name.lower():
+                case str(x) if "bitget" in x:
                     if _stop:
                         param['stopLossPrice'] = _price
                     if not _hedged:

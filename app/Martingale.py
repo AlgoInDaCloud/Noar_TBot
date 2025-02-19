@@ -1,10 +1,12 @@
 from app.api import Api
+from app.files_rw import config_update
 from app.logging import trade_logger
 from app.models import Strategy, Candles
 
 class MartingaleStrategy:
     def __init__(self,parameters,_backtest=False):
         #Get parameters
+        self.param_last_modified = None
         self.platform_api=parameters['api']
         self.symbol=parameters['symbol']
         self.timeframe=parameters['timeframe']
@@ -42,6 +44,7 @@ class MartingaleStrategy:
         self.last_close_price = None
 
     def apply_strategy(self,candles:Candles,current_index=0):
+        self.api.get_order(id,self.symbol)
         self.strategy.last_known_price = candles.history[current_index]['Close']
         self.strategy.set_runup_drawdown(candles.history[current_index])
         if self.strategy.position is None:
@@ -51,14 +54,13 @@ class MartingaleStrategy:
                 qty = amount_per_order / candles.history[current_index]['Close']
                 qty = qty - qty % self.strategy.min_qty # Qty => round to min qty
                 if qty > 0:  # If enough, set trade, martingale orders and liquidation price
-                    print('launching_trade')
                     candles.history[current_index]['Trade'] = "Entry"
                     self.launch_martingale(candles.history[current_index]['Time'], candles.history[current_index]['Close'], True,
                                       amount_per_order, qty)
                     self.close_qty = self.strategy.open_trades[-1].qty * self.tp_qty_percent  # Calculate TP qty
                     self.close_qty = self.close_qty - self.close_qty % self.strategy.min_qty
                 else:
-                    print("Error:Not enough capital for trading")
+                    trade_logger.warning("Error:Not enough capital for trading")
         else:  # If in trade, check if TP, martingales ou SL orders have been triggered, and update runups/drawdowns
             trade_logger.info('in trade')
             trade_logger.info('SL=' + str(self.stop_loss)
@@ -135,7 +137,6 @@ class MartingaleStrategy:
 
 
     def trade_condition(self,candle, prev_candle):
-        print(self.rsi_trade_levels['buy'])
         if not 'RSI' in prev_candle or prev_candle.get('RSI') is None: return None
         if candle.get('RSI') > self.rsi_trade_levels['buy'] > prev_candle.get('RSI'):
             return True
@@ -152,3 +153,39 @@ class MartingaleStrategy:
             return True
         else:
             return False
+
+    def update_config(self):
+        last_modified,parameters=config_update('app/params/martingale.ini',self.param_last_modified)
+        self.param_last_modified = last_modified
+        if parameters is not None:
+            if 'PARAMETERS' in parameters:
+                parameters = parameters['PARAMETERS']
+            else:
+                return False
+            self.martingale_number = int(parameters['martingale_number'])
+            self.initial_capital = int(parameters['initial_capital'])
+            self.leverage = int(parameters['leverage'])
+            self.start_date = parameters['start_date'].timestamp()
+            self.tp_qty_percent = int(parameters['tp_qty_percent']) / 100
+            self.profit_sl_activation = float(parameters['profit_sl_activation']) / 100
+            self.dist_btw_tp = float(parameters['dist_btw_tp']) / 100
+            self.indicators = {'RSI': int(parameters['rsi_length']), 'PivotsHL': int(parameters['pivot_width'])}
+            self.rsi_trade_levels = {'buy': int(parameters['rsi_os']), 'sell': int(parameters['rsi_ob'])}
+            # If global changes, reset all
+            if self.platform_api != parameters['api'] \
+                    or self.symbol != parameters['symbol'] \
+                    or self.timeframe != parameters['timeframe']:
+                self.platform_api = parameters['api']
+                self.symbol = parameters['symbol']
+                self.timeframe = parameters['timeframe']
+                self.candle_duration = Candles.timeframe_to_seconds(self.timeframe)
+                # Set objects
+                self.api = Api(self.platform_api)
+                self.strategy = Strategy(None, self.initial_capital, self.leverage, start_date=self.start_date,
+                                         api=self.api, symbol=self.symbol)
+                # Initialize variables
+                self.stop_loss = None
+                self.close_qty = None
+                self.last_close_price = None
+                return True #If strategy resets, return true to reset candles
+        return False #if only trading parameters change, return false to keep candles

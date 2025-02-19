@@ -1,6 +1,5 @@
 import threading
 from configparser import ConfigParser
-
 from app.files_rw import read_config_file
 from app.strategy import Bot
 from app.threads import get_bots_threads, get_thread_by_name
@@ -53,13 +52,9 @@ def bot_function(strategy_name=None,action=None):
             for key in remove_keys:parameters.pop(key,None)
             config = ConfigParser()
             config['PARAMETERS']=parameters
-            print(parameters)
-            print(config.sections())
-            print(config['PARAMETERS'].items())
             with open(config_file, 'w') as configfile:  # save
                 config.write(configfile)
         elif form.start.data:
-            print('start')
             bot_thread = Bot()
             bot_thread.set_strategy(strategy_name.capitalize(),strat_param,False)
             bot_thread.name = strategy_name.capitalize()+'-bot'
@@ -68,6 +63,8 @@ def bot_function(strategy_name=None,action=None):
             for thread in threading.enumerate():
                 if thread.name == strategy_name.capitalize()+'-bot':
                     thread.stop()
+                    thread.interrupt.set()
+                    return redirect('/'+strategy_name)
 
     if action=="backtest":
         bot_thread = Bot()
@@ -90,7 +87,7 @@ def bot_function(strategy_name=None,action=None):
             page=int(page)
             #candles.history=candles.history[50*page:49*(page+1)]
 
-    return render_template('martingale.html', title=strategy_name.capitalize()+'-bot', form=form,
+    return render_template('strategy.html', title=strategy_name.capitalize()+'-bot', form=form,
                                    thread=get_thread_by_name(strategy_name.capitalize()+'-bot'), backtest_strategy=backtest_strategy,
                                    candles=candles)
 
@@ -103,11 +100,6 @@ def index():
     except BaseException as exception:
         routes_logger.exception(exception)
         return render_template('error.html',title="Error during execution")
-
-@app.route('/favicon.ico')
-@app.route('/favicon.ico/')
-def rien():
-    return
 
 @app.route('/<strategy_name>/', methods=['GET', 'POST'])
 @app.route('/<strategy_name>/<action>/', methods=['GET', 'POST'])

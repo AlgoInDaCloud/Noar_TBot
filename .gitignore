@@ -1,8 +1,7 @@
 /app/params/
-/app/olds/
 /app/logs/
 /app/datas/
-/.env
+/.env_var.ini
 
 
 # PyCharm specific files
@@ -73,7 +72,7 @@ ipython_config.py
 __pypackages__/
 
 # Environment
-.env
+.env_var.ini
 .venv
 env/
 venv/

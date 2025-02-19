@@ -2,11 +2,11 @@
 <html>
     <head>
         {% block head %}
+        <meta name="robots" content="noindex">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}"/>
         <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles.css') }}">
-        <link rel="shortcut icon" href="/static/favicon.ico">
-
         {% block styles %}
             <!-- Bootstrap CSS -->
             {{ bootstrap.load_css() }}

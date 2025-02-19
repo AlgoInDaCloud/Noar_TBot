@@ -4,14 +4,23 @@ import csv
 import re
 from configparser import ConfigParser
 from datetime import datetime
+from app.logging import app_logger
 
-def csv_to_dicts(csv_file_path):
+
+def csv_to_dicts(csv_file_path,_key=None,_min=None,_max=None,_value=None):
     datas = list()
     if os.path.exists(csv_file_path):
         with open(csv_file_path, 'r') as file:
             csv_file = csv.DictReader(file)
             for row in csv_file:
-                datas.append(dict(row))
+                if _key is not None: #Check if filter set
+                    if _min is not None and _min==-1: #Get last line, so remove each previous line
+                        if len(datas)>0:datas.pop()
+                    else:
+                        if _value is not None and dict(row)[_key]!=_value:continue #if not match value, skip
+                        if _min is not None and float(dict(row)[_key])<_min:continue #if under min, skip
+                        if _max is not None and float(dict(row)[_key])>_max:continue #if above max, skip
+                datas.append(dict(row))#else append to datas
     return datas
 
 def dicts_to_csv(datas,csv_file_path,append):
@@ -22,7 +31,7 @@ def dicts_to_csv(datas,csv_file_path,append):
             writer.writerow(datas[0].keys())
         for row in datas:
             writer.writerow(list(row.values()))
-        print(f"{len(datas)} new lines saved to {csv_file_path}")
+        app_logger.info(f"{len(datas)} new lines saved to {csv_file_path}")
 
 def read_config_file(_config_file):
     config = ConfigParser()
@@ -52,3 +61,11 @@ def correct_types_from_strings(list_of_dict):
             else:
                 list_of_dict[index][key] = value
     return list_of_dict
+
+def config_update(_config_file,_last_modified):
+    last_modified=os.path.getmtime(_config_file)
+    if _last_modified is not None and last_modified > _last_modified:
+        parameters=read_config_file(_config_file)
+        return last_modified,parameters
+    else:
+        return last_modified,None

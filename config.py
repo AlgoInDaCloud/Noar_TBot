@@ -1,5 +1,5 @@
-import os
-
+from app.files_rw import read_config_file
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    PWD_KEY = os.environ.get('PWD_KEY')
+    vars=read_config_file('.env_var.ini')['ENV_VARS']
+    SECRET_KEY = vars['secret_key']
+    PWD_KEY = vars['pwd_key']
