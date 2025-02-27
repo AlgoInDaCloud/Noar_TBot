@@ -1,13 +1,8 @@
-
 import threading
 import time
 import importlib
-from datetime import datetime
-
-import app.wip.models
-from app.files_rw import config_update
-from app.logging import app_logger, strategy_logger
 from app.models import Candles
+from app.logging import app_logger, strategy_logger
 
 
 class Bot(threading.Thread):
@@ -28,7 +23,7 @@ class Bot(threading.Thread):
         app_logger.info("Received start signal : starting")
         if self.strategy is not None:
             try:
-                self.candles = app.wip.models.Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
+                self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
                 while True:
                     print("States_differ=",not self.check_state(self.get_platform_state()))
@@ -38,7 +33,7 @@ class Bot(threading.Thread):
                     config_update_action=self.strategy.update_config()
                     if config_update_action==2: #If strategy has reset, reset candles
                         del self.candles
-                        self.candles = app.wip.models.Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
+                        self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                         self.candles.get_candles_history(28, self.strategy.indicators)
                         lines_added=1
                     elif config_update_action==1: #if indicators need recalculation
@@ -78,11 +73,10 @@ class Bot(threading.Thread):
         except BaseException as exception:
             app_logger.exception(exception)
 
-    import app.wip.models
     def backtest(self):
         if self.strategy is not None:
             try:
-                candles=app.wip.models.Candles(self.strategy.api,self.strategy.symbol,self.strategy.timeframe,100)
+                candles= Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 candles.prepare_backtest(self.strategy.start_date,self.strategy.indicators,self.strategy.min_bars_back)
                 candles.get_backtest_candle()
                 for index,candle in enumerate(candles.backtest_candles):

@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from app.api import Api
 from app.files_rw import config_update
 from app.logging import trade_logger
@@ -56,8 +55,6 @@ class MartingaleStrategy:
                             self.martingale_number + 1)  # Funds available per order
                 qty = amount_per_order / candles.history[current_index]['Close']
                 qty = qty - qty % self.strategy.min_qty # Qty => round to min qty
-                print('quntité',qty,'Amount=',amount_per_order)
-                #print(datetime.fromtimestamp(candles.history[current_index]['Time']),self.strategy.get_equity(),qty)
                 if qty > 0:  # If enough, set trade, martingale orders and liquidation price
                     candles.history[current_index]['Trade'] = "Entry"
                     self.launch_martingale(candles.history[current_index]['Time'], candles.history[current_index]['Close'], True,
@@ -67,14 +64,7 @@ class MartingaleStrategy:
                 else:
                     trade_logger.warning("Error:Not enough capital for trading")
         else:  # If in trade, check if TP, martingales ou SL orders have been triggered, and update runups/drawdowns
-            #trade_logger.info('in trade')
-            #trade_logger.info('SL=' + str(self.stop_loss)
-            #               + " PivotL=" + str(candles.history[current_index]['PivotsHL']['low'])
-            #               + " AvgPrice=" + str(self.strategy.position.open_price)
-            #               + " ClosePrice=" + str(candles.history[current_index]['Close'])
-            #               + " SLActPrice=" + str(self.strategy.position.open_price * (1 + self.profit_sl_activation)))
             if self.stop_loss is None or self.stop_loss == 0:  # if still in martingale phase
-                #trade_logger.info('still mart')
                 if self.stop_loss is None and candles.history[current_index]['Close'] > self.strategy.position.open_price * (
                         1 + self.profit_sl_activation):
                     trade_logger.info('SL activation')
@@ -100,7 +90,6 @@ class MartingaleStrategy:
                 if order.stop:
                     self.close_order_function(candles.history[current_index]['Time'], order.qty, "SL", order.limit)
                     candles.history[current_index]['Trade'] = "SL"
-                    #self.cancel_order_function()
                     self.last_close_price = 0
                     self.stop_loss = None
                     self.strategy.liquidation_price=None
@@ -125,7 +114,6 @@ class MartingaleStrategy:
         temp_strategy = Strategy(leverage=self.strategy.leverage,
                                  taker_fee=self.strategy.taker_fee)
         self.trade_function(time, _initial_price, _long, _initial_qty, 'Entry')
-        # strategy.open_trade(time,_initial_price,_long,_initial_qty,'Entry')
         temp_strategy.log_trade(time, _initial_price, _long, _initial_qty)
         trade=self.strategy.open_trades[-1]
         trade_logger.info(f'Entry : {datetime.fromtimestamp(trade.open_time)} {'buy'if trade.long else 'sell'} {trade.qty} @{trade.open_price}')

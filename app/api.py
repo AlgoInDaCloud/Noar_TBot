@@ -1,8 +1,6 @@
 import time
 from typing import Literal
 import ccxt
-from pycares.errno import value
-
 from app.files_rw import read_config_file
 from app.logging import api_logger, trade_logger
 
