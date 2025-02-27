@@ -1,6 +1,7 @@
 /app/params/
 /app/logs/
 /app/datas/
+/app/wip/
 /.env_var.ini
 
 

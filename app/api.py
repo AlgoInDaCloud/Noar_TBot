@@ -1,5 +1,8 @@
+import time
 from typing import Literal
 import ccxt
+from pycares.errno import value
+
 from app.files_rw import read_config_file
 from app.logging import api_logger, trade_logger
 
@@ -32,8 +35,8 @@ class Api:
         try:
             history = list()
             if self.exchange.has['fetchOHLCV']:
-                params={"until":until*1000} if until is not None else {}
-                raw_history=self.exchange.fetch_ohlcv(symbol, timeframe,since*1000 if until is None else None,limit=limit,params=params)
+                params={"until":int(until*1000)} if until is not None else {}
+                raw_history=self.exchange.fetch_ohlcv(symbol, timeframe,int(since*1000) if until is None else None,limit=limit,params=params)
                 if len(raw_history)>0:
                     keys = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
                     for row in raw_history:
@@ -59,20 +62,36 @@ class Api:
                 case str(x) if "bitget" in x:
                     if _stop:
                         param['stopLossPrice'] = _price
+                        param['holdSide'] = 'buy' if _side=='sell' else 'sell'
+                        if _qty is not None:
+                            param['planType']='loss_plan'
+                        _type='market'
                     if not _hedged:
                         param['oneWayMode'] = True
             response=self.exchange.create_order(_symbol, _type, _side, _qty, price = _price, params = param)
-            return self.get_order(response['id'], _symbol)
+            api_logger.info("sendorderRespId=%s", response['id'])
+            time.sleep(1)
+            temp=self.get_order(response['id'], _symbol,_stop)
+            return temp
         except BaseException as exception:
             api_logger.exception(exception)
 
 
 
-    def get_order(self,_id,_symbol):
+    def get_order(self,_id,_symbol,_stop=False):
         try:
-            response=self.exchange.fetch_order(_id, _symbol)
             match self.exchange_name.lower():
                 case str(x) if "bitget" in x:
+                    param={}
+                    if _stop:
+                        #param['stop'] = True
+                        param['orderId']=_id
+                        param['planType']='profit_loss'
+                        response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
+                    else:
+                        response = self.exchange.fetch_order(_id, _symbol)
+                    trade_logger.info("param: %s", param)
+                    trade_logger.info("Return: %s",response)
                     return {'id': response['id'], 'price': response['price'], 'avg_price': response['average'],
                             'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
                             'fee': response['fee']}
@@ -92,13 +111,18 @@ class Api:
                         param['oneWayMode'] = True
 
             response=self.exchange.edit_order(_id, _symbol, _type, _side, _amount, price=_price, params=param)
+            time.sleep(1)
             return self.get_order(response['id'], _symbol)
         except BaseException as exception:
             api_logger.exception(exception)
 
     def get_position(self,_symbol):
         try:
-            return self.exchange.fetch_position(_symbol)
+            response=self.exchange.fetch_position(_symbol)['info']
+            match self.exchange_name.lower():
+                case str(x) if "bitget" in x:
+                    if not ('cTime' in response):return False
+                    return {'open_time':int(response['cTime'])/1000,'open_price':float(response['openPriceAvg']),'long':True if response['holdSide']=='long' else False,'qty':float(response['total']),'margin':float(response['marginSize']),'last_known_price':float(response['markPrice'])}
         except BaseException as exception:
             api_logger.exception(exception)
 
@@ -106,7 +130,15 @@ class Api:
     def get_open_orders(self,_symbol):
         try:
             if self.exchange.has['fetchOpenOrders']:
-                return self.exchange.fetch_open_orders(symbol=_symbol)
+                response=self.exchange.fetch_open_orders(symbol=_symbol)
+                response=response+ self.exchange.fetch_open_orders(symbol=_symbol, params={'planType':'profit_loss'})
+                api_logger.info('OpenOrders=%s', response)
+                orders=[]
+                for index, order in enumerate(response):
+                    match self.exchange_name.lower():
+                        case str(x) if "bitget" in x:
+                            orders.append({'price':order['price'] if order['price'] is not None else order['stopPrice'],'long':True if order['side']=='buy' else False,'qty':order['amount'],'name':'test','stop':True if order['stopLossPrice'] is not None else False,'id':order['id']})
+                return orders
         except BaseException as exception:
             api_logger.exception(exception)
 

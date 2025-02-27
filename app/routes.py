@@ -43,7 +43,7 @@ def bot_function(strategy_name=None,action=None):
     #module = importlib.import_module('app.' + strategy_name.capitalize())
     _class = getattr(forms, strategy_name.capitalize()+'Parameter')
     form = _class(**strat_param)
-    form.API.choices=[(api, api) for api in available_apis]
+    form.API.choices = [(api, api) for api in available_apis]
 
     if form.validate_on_submit():
         if form.submit.data:
@@ -52,6 +52,7 @@ def bot_function(strategy_name=None,action=None):
             for key in remove_keys:parameters.pop(key,None)
             config = ConfigParser()
             config['PARAMETERS']=parameters
+            print(parameters)
             with open(config_file, 'w') as configfile:  # save
                 config.write(configfile)
         elif form.start.data:
@@ -64,7 +65,8 @@ def bot_function(strategy_name=None,action=None):
                 if thread.name == strategy_name.capitalize()+'-bot':
                     thread.stop()
                     thread.interrupt.set()
-                    return redirect('/'+strategy_name)
+        return redirect('/' + strategy_name)
+    form.API.data = strat_param['api']
 
     if action=="backtest":
         bot_thread = Bot()
@@ -86,10 +88,9 @@ def bot_function(strategy_name=None,action=None):
         if page is not None:
             page=int(page)
             #candles.history=candles.history[50*page:49*(page+1)]
-
     return render_template('strategy.html', title=strategy_name.capitalize()+'-bot', form=form,
                                    thread=get_thread_by_name(strategy_name.capitalize()+'-bot'), backtest_strategy=backtest_strategy,
-                                   candles=candles)
+                                   candles=candles,strategy_name=strategy_name,action=action)
 
 @app.route('/')
 @app.route('/index')

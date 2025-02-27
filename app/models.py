@@ -93,7 +93,7 @@ class Candles:
             history.reverse()
             self.history = history
             self.update_history(indicators)
-            #self.history = self.history[:99] #Keep last 100 bars in memory
+            self.history = self.history[:99] #Keep last 100 bars in memory
         #if indicators is not None:
         #    self.calc_indicators(indicators)
             '''
@@ -197,8 +197,8 @@ class Candles:
                 #lines_for_calculation = list(self.history[0:since_index + bars])
             #else:
                 #lines_for_calculation = list(self.history)
-            if len(self.history) - 1 > since_index + 1 and 'Pivot' in self.history[since_index + 1]:
-                pivots = self.history[since_index + 1]['Pivot']
+            if len(self.history) - 1 > since_index + 1 and 'PivotsHL' in self.history[since_index + 1]:
+                pivots = self.history[since_index + 1]['PivotsHL']
             else:
                 pivots = {'high': None, 'low': None}
         else:
@@ -225,7 +225,7 @@ class Candles:
                     pivots['low']=None
                 if pivots['high'] is not None and pivots['high']<self.history[index]['High']:
                     pivots['high']=None
-            self.history[index]['Pivot'] = dict(pivots)
+            self.history[index]['PivotsHL'] = dict(pivots)
 
     @staticmethod
     def timeframe_to_seconds(timeframe):
@@ -312,7 +312,7 @@ class Strategy:
     def open_trade(self, open_time, open_price, long, qty, _name=None,margin=None):
         try:
             response=self.api.send_order(self.symbol, 'buy' if long else 'sell', qty, 'market')
-            self.log_trade(open_time,response['price'],response['long'],response['size'],_name)
+            self.log_trade(open_time,response['avg_price'],response['long'],response['size'],_name)
             '''
             position = get_position(self.exchange, self.symbol)
             margin=position['initialMargin']
@@ -333,7 +333,7 @@ class Strategy:
 
     def open_order(self,_price,_long,_qty,_name=None,_stop=False):
         try:
-            response = self.api.send_order(self.symbol, 'buy' if _long else 'sell', _qty,'limit', _price,_stop)
+            response = self.api.send_order(self.symbol, 'buy' if _long else 'sell', _qty,'market' if _stop else 'limit', _price,_stop)
             self.log_order(response['price'],response['long'],response['size'],_name,_stop,response['id'])
             return response
             '''
@@ -499,6 +499,9 @@ class Strategy:
             self.close_name = close_name
             self.id=None
 
+        def __str__(self):
+            return f'{datetime.fromtimestamp(self.open_time)} {self.open_name} {'buy' if self.long else 'sell'} {self.qty} @{self.open_price} close {self.close_name} @{self.close_price}'
+
         def set_runup_drawdown(self, candle):
             if self.long:
                 if (self.runup_price is not None and candle['High'] > self.runup_price) or (self.runup_price is None and candle['High']>self.open_price): self.runup_price = candle['High']
@@ -555,7 +558,7 @@ class Strategy:
             self.close_time = time
             # If trade bigger, reduce to order qty and return qty left in trade
             close_qty_left = qty - self.qty
-            if close_qty_left > 0:
+            if close_qty_left < 0:
                 self.qty = qty
             # Return qty left to close (positive) or qty left in trade (negative)
             return close_qty_left
@@ -570,6 +573,12 @@ class Strategy:
             return (self.qty * self.open_price - (1 if self.long else -1) * self.margin) / (
                     (1 - (1 if self.long else -1) * (
                                 self.strategy.maintenance_margin + self.strategy.taker_fee)) * self.qty)
+        def equals(self,trade:'Strategy.Trade'):
+            if self.open_price!=trade.open_price:return False
+            if self.qty!=trade.qty:return False
+            if self.long!=trade.long:return False
+            return True
+
 
     class Order:
         def __init__(self, qty, limit:float=None, long=True, stop=False, name=None,id=None):
@@ -591,6 +600,14 @@ class Strategy:
                     return True
                 if not self.long and candle['High'] > self.stop:
                     return True
+
+        def equals(self,order:'Strategy.Order'):
+            if self.limit!=order.limit:return False
+            if self.qty!=order.qty:return False
+            if self.long!=order.long:return False
+            if self.stop!=order.stop:return False
+            if self.id!=order.id:return False
+            return True
 
 
 def find_time_index_in_chronological(list_of_dict, time_in_second):
