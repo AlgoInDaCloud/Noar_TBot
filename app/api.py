@@ -111,7 +111,6 @@ class Api:
             time.sleep(1)
             return self.get_order(response['id'], _symbol)
         except BaseException as exception:
-            i
             api_logger.exception(exception)
 
     def get_position(self,_symbol):

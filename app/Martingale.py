@@ -83,6 +83,11 @@ class MartingaleStrategy:
                     trade=self.strategy.closed_trades[-1]
                     trade_logger.info(f"TP : {datetime.fromtimestamp(int(candles.history[current_index]['Time']))} Sell {trade.qty} @{trade.close_price} /{self.close_qty},{candles.history[current_index]['Close']}")
                     self.last_close_price=candles.history[current_index]['Close']
+                    if self.strategy.position is None:
+                        self.strategy.open_orders=[]
+                        self.last_close_price=0
+                        self.close_qty=0
+                        self.stop_loss=None
 
             orders_filled = self.strategy.check_orders(candles.history[current_index])
             for order in orders_filled:
