@@ -25,8 +25,8 @@ class Bot(threading.Thread):
             try:
                 self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
-                while True:
-                    print("States_differ=",not self.check_state(self.get_platform_state()))
+                app_logger.info(f"{'Platform and bot dont match' if not self.check_state(self.get_platform_state()) else 'Platform and bot match !'}")
+                while True:    
                     if self.stop_signal:
                         app_logger.info("Received stop signal : stopping")
                         break
@@ -86,22 +86,7 @@ class Bot(threading.Thread):
 
             except BaseException as exception:
                 app_logger.exception(exception)
-    '''
-    def backtest(self):
-        if self.strategy is not None:
-            try:
-                candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe,100,self.strategy.indicators)
-                if candles.history[-1].get('Time')>self.strategy.start_date:
-                    candles.increase_history(self.strategy.start_date,indicators=self.strategy.indicators)
 
-                for index in reversed(range(len(candles.history))):
-                    if candles.history[index]['Time'] < self.strategy.strategy.start_date or index==len(candles.history)-1: continue #loop till backtest starting time
-                    self.strategy.apply_strategy(candles,index)
-
-                return self.strategy.strategy,candles
-            except BaseException as exception:
-                app_logger.exception(exception)
-    '''
     def get_platform_state(self):
         import copy
         platform_state=copy.deepcopy(self.strategy)
@@ -123,22 +108,17 @@ class Bot(threading.Thread):
     def check_state(self,state):
         if self.strategy.strategy.position is None:
             if state.strategy.position is not None:
-                print(1)
                 return False
         elif state.strategy.position is None :
-            print(2)
             return False
         elif not self.strategy.strategy.position.equals(state.strategy.position):
-            print(3)
             return False
         if len(state.strategy.open_orders)!=len(self.strategy.strategy.open_orders):
-            print(4)
             return False
         if len(state.strategy.open_orders)>0:
             for index,order in enumerate(self.strategy.strategy.open_orders.copy()):
                 order.name=None
                 if not state.strategy.open_orders[index].equals(order):
-                    print('index=', index)
                     return False
         return True
 

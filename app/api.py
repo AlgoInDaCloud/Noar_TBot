@@ -88,12 +88,11 @@ class Api:
                         response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
                     else:
                         response = self.exchange.fetch_order(_id, _symbol)
-                    trade_logger.info("param: %s", param)
-                    trade_logger.info("Return: %s",response)
-                    return {'id': response['id'], 'price': response['price'], 'avg_price': response['average'],
+                    return {'id': response['id'], 'price': response['price'] if not _stop else response['stopPrice'], 'avg_price': response['average'],
                             'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
                             'fee': response['fee']}
         except BaseException as exception:
+            api_logger.exception(exception['code'])
             api_logger.exception(exception)
 
 
@@ -112,6 +111,7 @@ class Api:
             time.sleep(1)
             return self.get_order(response['id'], _symbol)
         except BaseException as exception:
+            i
             api_logger.exception(exception)
 
     def get_position(self,_symbol):
@@ -130,7 +130,6 @@ class Api:
             if self.exchange.has['fetchOpenOrders']:
                 response=self.exchange.fetch_open_orders(symbol=_symbol)
                 response=response+ self.exchange.fetch_open_orders(symbol=_symbol, params={'planType':'profit_loss'})
-                api_logger.info('OpenOrders=%s', response)
                 orders=[]
                 for index, order in enumerate(response):
                     match self.exchange_name.lower():

@@ -124,6 +124,9 @@ class Candles:
         if indicators is not None:
             for index,candle in enumerate(history):
                 history[index]=self.calc_indicators(candle,indicators) #Calc indicators
+        append=CsvRW(self.csv_file_path)
+        append.safe_append_to_csv(history)
+        del append
         history.reverse() #Sort by time descending
         self.history = history
         return history
@@ -315,6 +318,7 @@ class Strategy:
         self.position = position
 
     def open_trade(self, open_time, open_price, long, qty, _name=None,margin=None):
+        qty = qty - qty % self.min_qty #truncate to min-qty
         try:
             response=self.api.send_order(self.symbol, 'buy' if long else 'sell', qty, 'market')
             self.log_trade(open_time,response['avg_price'],response['long'],response['size'],_name)
@@ -333,10 +337,12 @@ class Strategy:
 
 
     def log_trade(self,open_time, open_price, long, qty, name=None,margin=None):
+        qty = qty - qty % self.min_qty #truncate to min-qty
         self.open_trades.append(Strategy.Trade(self, open_time, open_price, long, qty, open_name=name,margin=margin))
         self.set_position()
 
     def open_order(self,_price,_long,_qty,_name=None,_stop=False):
+        _qty = _qty - _qty % self.min_qty #truncate to min-qty
         try:
             response = self.api.send_order(self.symbol, 'buy' if _long else 'sell', _qty,'market' if _stop else 'limit', _price,_stop)
             self.log_order(response['price'],response['long'],response['size'],_name,_stop,response['id'])
@@ -345,21 +351,24 @@ class Strategy:
             strategy_logger.exception(exception)
 
     def log_order(self,_price,_long,_qty,_name=None,_stop=False,_id=None):
+        _qty = _qty - _qty % self.min_qty #truncate to min-qty
         self.open_orders.append(self.Order(_qty, _price, _long, _stop, _name,_id))
 
-    def edit_order(self,_id,_price,_long,_size,_stop,_symbol,_type:Literal['limit','market']='limit'):
+    def edit_order(self,_id,_price,_long,_qty,_stop,_symbol,_type:Literal['limit','market']='limit'):
+        _qty = qty - qty % self.min_qty #truncate to min-qty
         try:
-            response=self.api.edit_order(_id,_symbol,'buy' if _long else 'sell',_size,_price,_type,_stop)
+            response=self.api.edit_order(_id,_symbol,'buy' if _long else 'sell',_qty,_price,_type,_stop)
             self.edit_log_order(response['id'],response['price'], response['long'], response['size'], _stop,_symbol)
         except BaseException as exception:
             strategy_logger.exception(exception)
 
-    def edit_log_order(self,_id,_price,_long,_size,_stop,_symbol):
+    def edit_log_order(self,_id,_price,_long,_qty,_stop,_symbol):
+        _qty = _qty - _qty % self.min_qty #truncate to min-qty
         for index in range(len(self.open_orders)):
             if self.open_orders[index].id == _id:
                 self.open_orders[index].limit=_price
                 self.open_orders[index].long = _long
-                self.open_orders[index].qty = _size
+                self.open_orders[index].qty = _qty
                 self.open_orders[index].stop = _stop
 
 
@@ -383,7 +392,8 @@ class Strategy:
                     self.open_orders.remove(order)
 
     def close_order(self, close_time, qty, name=None,price=None):
-        if self.position is not None:
+        qty = qty - qty % self.min_qty #truncate to min_qty
+        if self.position is not None and qty > 0 :
             try:
                 response = self.api.send_order(self.symbol, 'sell' if self.position.long else 'buy', qty, 'market')
                 self.log_close_order(close_time,response['size'],name,response['avg_price'])
@@ -392,6 +402,7 @@ class Strategy:
 
 
     def log_close_order(self,close_time, qty, name=None,close_price=None):
+        qty = qty - qty % self.min_qty #truncate to min-qty
         qty_left = qty
         while qty_left > 0 and len(self.open_trades) > 0:
             trade = self.open_trades.pop(0)
@@ -491,7 +502,7 @@ class Strategy:
             self.id=None
 
         def __str__(self):
-            return f'{datetime.fromtimestamp(self.open_time)} {self.open_name} {'buy' if self.long else 'sell'} {self.qty} @{self.open_price} close {self.close_name} @{self.close_price}'
+            return f"{datetime.fromtimestamp(self.open_time)} {self.open_name} {'buy' if self.long else 'sell'} {self.qty} @{self.open_price} close {self.close_name} @{self.close_price}"
 
         def set_runup_drawdown(self, candle):
             if self.long:
@@ -572,8 +583,9 @@ class Strategy:
 
 
     class Order:
-        def __init__(self, qty, limit:float=None, long=True, stop=False, name=None,_id=None):
+        def __init__(self, qty, limit:float=None, long=True, stop=False, name=None,_id=None,_time=None):
             self.id=_id
+            self.time = _time
             self.limit = limit
             self.qty = qty
             self.long = long

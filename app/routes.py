@@ -11,7 +11,7 @@ from app import app, forms
 from app.forms import LoginForm
 from app.models import User
 from app.logging import routes_logger
-
+from time import sleep
 
 #Logging function
 def login_function():
@@ -52,9 +52,12 @@ def bot_function(strategy_name=None,action=None):
             for key in remove_keys:parameters.pop(key,None)
             config = ConfigParser()
             config['PARAMETERS']=parameters
-            print(parameters)
             with open(config_file, 'w') as configfile:  # save
                 config.write(configfile)
+            for thread in threading.enumerate():
+                if thread.name == strategy_name.capitalize()+'-bot':
+                    thread.interrupt.set()
+                    sleep(1)
         elif form.start.data:
             bot_thread = Bot()
             bot_thread.set_strategy(strategy_name.capitalize(),strat_param,False)
@@ -65,6 +68,7 @@ def bot_function(strategy_name=None,action=None):
                 if thread.name == strategy_name.capitalize()+'-bot':
                     thread.stop()
                     thread.interrupt.set()
+                    sleep(1)
         return redirect('/' + strategy_name)
     form.API.data = strat_param['api']
 

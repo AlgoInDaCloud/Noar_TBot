@@ -82,6 +82,8 @@ class CsvRW:
             self.f=None
         if self.temp_file is not None and not self.temp_file.closed:
             self.temp_file.close()
+            if os.path.exists(self.temp_file.name):
+                os.unlink(self.temp_file.name)
             self.temp_file=None
 
     def write_to_csv(self,mode:Literal['w','a'],keys:list=None):
@@ -99,20 +101,26 @@ class CsvRW:
         self.f=open(self.csv_file_path)
         self.reader=csv.DictReader(self.f)
         self.readline=self.line_read_iterate()
-        self.temp_file=NamedTemporaryFile("w",dir=os.path.dirname(self.csv_file_path))
+        self.temp_file=NamedTemporaryFile("w",dir=os.path.dirname(self.csv_file_path),delete=False)
         self.writer=csv.writer(self.temp_file)
         return
 
     #Append new lines, only if lines don't exist
     def safe_append_to_csv(self,lines:list):
-        self.close_if_open()
-        self.read_backward()
-        newest=self.get_previous_line()['Time']
-        self.write_to_csv('a')
-        for line in lines:
-            if line['Time']<=newest:continue
-            self.write_line(list(line.values()))
-        self.close_if_open()
+        if len(lines)>0:
+            self.close_if_open()
+            self.read_backward()
+            first_line=self.get_previous_line()
+            self.write_to_csv('a')
+            if first_line is not None:
+                newest = first_line['Time'] 
+            else: 
+                newest = 0
+                self.writer.writerow(list(lines[0].keys()))
+            for line in lines:
+                if line['Time']<=newest:continue
+                self.write_line(list(line.values()))
+            self.close_if_open()
 
     def save_and_replace(self):
         os.rename(self.temp_file.name,self.csv_file_path)
