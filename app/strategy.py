@@ -26,10 +26,6 @@ class Bot(threading.Thread):
             try:
                 self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
-                if len(self.strategy.strategy.open_orders)>0:
-                    order=self.strategy.strategy.open_orders[0]
-                    order.price=93000
-                    self.strategy.strategy.edit_order(order)
                 app_logger.info(f"{'Platform and bot dont match' if not self.check_state(self.get_platform_state()) else 'Platform and bot match !'}")
                 while True:
                     if self.stop_signal:

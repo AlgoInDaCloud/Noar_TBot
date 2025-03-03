@@ -89,8 +89,7 @@ class Api:
                         response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
                     else:
                         response = self.exchange.fetch_order(_id, _symbol)
-                    api_logger.info(f"{self.exchange.markets[_symbol]}")
-                    return {'id': response['id'], 'price': response['stopPrice'] if _stop else response['average'] if response['average'] is not None else response['Price'],
+                    return {'id': response['id'], 'price': response['stopPrice'] if _stop else response['average'] if response['average'] is not None else response['price'],
                             'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
                             'fee': response['fee']}
         except BaseException as exception:
