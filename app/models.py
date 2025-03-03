@@ -318,7 +318,6 @@ class Strategy:
         self.position = position
 
     def open_order(self, order:'Strategy.Order',backtest=False):
-        print(order)
         order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min-qty
         error=False
         if not backtest:

@@ -83,7 +83,6 @@ class Api:
                 case str(x) if "bitget" in x:
                     param={}
                     if _stop:
-                        #param['stop'] = True
                         param['orderId']=_id
                         param['planType']='profit_loss'
                         response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
@@ -110,7 +109,7 @@ class Api:
 
             response=self.exchange.edit_order(_id, _symbol, _type, _side, _amount, price=_price, params=param)
             time.sleep(1)
-            return self.get_order(response['id'], _symbol)
+            return self.get_order(response['id'], _symbol,_stop)
         except BaseException as exception:
             api_logger.exception(exception)
 

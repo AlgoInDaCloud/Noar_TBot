@@ -71,7 +71,6 @@ class CsvRW:
             line = dict(zip(self.keys, eval(line.strip())))
             return correct_types_from_strings([line])[0]
         except OSError as err:
-            print(err)
             self.f.seek(0)
             return self.__del__()
 

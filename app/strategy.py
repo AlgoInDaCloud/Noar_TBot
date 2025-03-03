@@ -26,11 +26,12 @@ class Bot(threading.Thread):
             try:
                 self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
-                app_logger.info(f"{'Platform and bot dont match' if not self.check_state(self.get_platform_state()) else 'Platform and bot match !'}")
                 while True:
                     if self.stop_signal:
                         app_logger.info("Received stop signal : stopping")
                         break
+                    if not self.check_state(self.get_platform_state()):
+                        raise self.MisalignmentError("Bot state differs from platform's. Stopping bot")
                     config_update_action=self.strategy.update_config()
                     if config_update_action==2: #If strategy has reset, reset candles
                         del self.candles
@@ -49,11 +50,10 @@ class Bot(threading.Thread):
                         except BaseException as exception:
                             strategy_logger.exception(exception)
                     time_to_wait=max(self.candles.history[0]['Time']+2*self.strategy.candle_duration-time.time(),0)
-                    #print('last_history='+str(datetime.fromtimestamp(self.candles.history[0]['Time'])))
-                    #print('min_time_to_fetch='+str(datetime.fromtimestamp(self.candles.history[0]['Time']+self.strategy.candle_duration)))
-                    #print('current_time=' + str(datetime.fromtimestamp(time.time())))
-                    #print('time to wait='+str(time_to_wait))
                     self.interrupt.wait(timeout=time_to_wait)
+            except self.MisalignmentError as exception:
+                app_logger.error(exception)
+                raise
             except BaseException as exception:
                 app_logger.exception(exception)
         else:
@@ -69,7 +69,11 @@ class Bot(threading.Thread):
             class_ = getattr(module, strategy_name+'Strategy')
             self.strategy = class_(parameters,backtest)
             state=self.get_platform_state()
-            self.strategy.set_state(state)
+            if self.check_state(state):
+                app_logger.info('Platform has no current state : starting fresh !')
+            else:
+                app_logger.warning("Platform has current state : updating bot state to match platform's, this may cause errors !")
+                self.strategy.set_state(state)
             return
         except BaseException as exception:
             app_logger.exception(exception)
@@ -101,7 +105,6 @@ class Bot(threading.Thread):
             platform_state.strategy.open_order(platform_state.strategy.Order(current_position['size'], current_position['open_price'], current_position['long'], 'market',False, 'Fetched_position',current_position['open_time'],None,current_position['margin']),True)
         if open_orders is not None:
             for index, order in enumerate(open_orders):
-                print(order)
                 platform_state.strategy.open_order(platform_state.strategy.Order(order['size'],order['price'], order['long'],'market' if order['stop'] else 'limit', order['stop'], 'Fetched_order', _id=order['id']),True)
         return platform_state
 
@@ -122,6 +125,7 @@ class Bot(threading.Thread):
                     return False
         return True
 
-
+    class MisalignmentError(Exception):
+        pass
 
 

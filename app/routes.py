@@ -77,10 +77,6 @@ def bot_function(strategy_name=None,action=None):
         bot_thread.set_strategy(strategy_name.capitalize(),strat_param)
         bot_thread.name = strategy_name.capitalize()+'-bot'
         backtest_strategy,candles = bot_thread.backtest()
-        #candles.history=candles.history[0:50]
-    if action=='maman':
-        print('maman')
-        #test_orders()
 
     for thread in threading.enumerate():
         if thread.name == strategy_name.capitalize()+'-bot':
