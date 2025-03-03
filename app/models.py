@@ -317,109 +317,91 @@ class Strategy:
             position = Strategy.Trade(self, self.open_trades[0].open_time, amount / qty, self.open_trades[0].long, qty)
         self.position = position
 
-    def open_trade(self, open_time, open_price, long, qty, _name=None,margin=None):
-        qty = qty - qty % self.min_qty #truncate to min-qty
-        try:
-            response=self.api.send_order(self.symbol, 'buy' if long else 'sell', qty, 'market')
-            self.log_trade(open_time,response['avg_price'],response['long'],response['size'],_name)
-            '''
-            position = get_position(self.exchange, self.symbol)
-            margin=position['initialMargin']
-            contracts=position['contracts']#QTY / Size
-            price=position['entryPrice']
-            maintenance_margin_percent=position['maintenanceMarginPercentage']
-            leverage=position['leverage']
-            side=position['side'] # "long" or "short" (strings)
-            '''
-        except BaseException as exception:
-            strategy_logger.exception(exception)
-
-
-
-    def log_trade(self,open_time, open_price, long, qty, name=None,margin=None):
-        qty = qty - qty % self.min_qty #truncate to min-qty
-        self.open_trades.append(Strategy.Trade(self, open_time, open_price, long, qty, open_name=name,margin=margin))
-        self.set_position()
-
-    def open_order(self,_price,_long,_qty,_name=None,_stop=False):
-        _qty = _qty - _qty % self.min_qty #truncate to min-qty
-        try:
-            response = self.api.send_order(self.symbol, 'buy' if _long else 'sell', _qty,'market' if _stop else 'limit', _price,_stop)
-            self.log_order(response['price'],response['long'],response['size'],_name,_stop,response['id'])
-            return response
-        except BaseException as exception:
-            strategy_logger.exception(exception)
-
-    def log_order(self,_price,_long,_qty,_name=None,_stop=False,_id=None):
-        _qty = _qty - _qty % self.min_qty #truncate to min-qty
-        self.open_orders.append(self.Order(_qty, _price, _long, _stop, _name,_id))
-
-    def edit_order(self,_id,_price,_long,_qty,_stop,_symbol,_type:Literal['limit','market']='limit'):
-        _qty = qty - qty % self.min_qty #truncate to min-qty
-        try:
-            response=self.api.edit_order(_id,_symbol,'buy' if _long else 'sell',_qty,_price,_type,_stop)
-            self.edit_log_order(response['id'],response['price'], response['long'], response['size'], _stop,_symbol)
-        except BaseException as exception:
-            strategy_logger.exception(exception)
-
-    def edit_log_order(self,_id,_price,_long,_qty,_stop,_symbol):
-        _qty = _qty - _qty % self.min_qty #truncate to min-qty
-        for index in range(len(self.open_orders)):
-            if self.open_orders[index].id == _id:
-                self.open_orders[index].limit=_price
-                self.open_orders[index].long = _long
-                self.open_orders[index].qty = _qty
-                self.open_orders[index].stop = _stop
-
-
-    def cancel_orders(self,_id=None):
-        if _id is None:
-            cancels = self.api.cancel_all_order(self.symbol)
-            for cancel in cancels:
-                if "id" in cancel:
-                    self.remove_log_orders(cancel['id'])
-        else:
-            cancel = self.api.cancel_order(_id,self.symbol)
-            if "id" in cancel:
-                self.remove_log_orders(cancel['id'])
-
-    def remove_log_orders(self,_id=None):
-        if id is None:
-            self.open_orders=[]
-        else:
-            for order in self.open_orders.copy():
-                if order.id==_id:
-                    self.open_orders.remove(order)
-
-    def close_order(self, close_time, qty, name=None,price=None):
-        qty = qty - qty % self.min_qty #truncate to min_qty
-        if self.position is not None and qty > 0 :
+    def open_order(self, order:'Strategy.Order',backtest=False):
+        print(order)
+        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min-qty
+        error=False
+        if not backtest:
             try:
-                response = self.api.send_order(self.symbol, 'sell' if self.position.long else 'buy', qty, 'market')
-                self.log_close_order(close_time,response['size'],name,response['avg_price'])
+                response=self.api.send_order(self.symbol, 'buy' if order.long else 'sell', order.size, order.type,order.price,order.stop)
+                order.size=response['size']
+                order.price=response['price']
+                order.long=response['long']
+                order.id=response['id']
             except BaseException as exception:
                 strategy_logger.exception(exception)
+                error=True
+        if not error:
+            if order.type=='market' and not order.stop:
+                self.open_trades.append(Strategy.Trade(self, order.time, order.price, order.long, order.size, open_name=order.name, margin=order.margin))
+                self.set_position()
+            else:
+                self.open_orders.append(order)
+            return order
 
 
-    def log_close_order(self,close_time, qty, name=None,close_price=None):
-        qty = qty - qty % self.min_qty #truncate to min-qty
-        qty_left = qty
-        while qty_left > 0 and len(self.open_trades) > 0:
-            trade = self.open_trades.pop(0)
-            qty_left = trade.close_trade(close_time, close_price, qty)
-            if qty_left < 0:
-                self.open_trades.insert(0, Strategy.Trade(self, trade.open_time, trade.open_price, trade.long,
-                                                          abs(qty_left), open_name=trade.open_name))
-            trade.close_name = name
-            self.closed_trades.append(trade)
-        self.set_position()
+    def edit_order(self,order:'Strategy.Order',backtest=False):
+        error=False
+        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min-qty
+        if not backtest:
+            try:
+                response=self.api.edit_order(order.id,self.symbol,'buy' if order.long else 'sell',order.size,order.price,order.type,order.stop)
+                order.id=response['id']
+                order.price=response['price']
+                order.long=response['long']
+                order.size=response['size']
+            except BaseException as exception:
+                error=True
+                strategy_logger.exception(exception)
+        if not error:
+            for index in range(len(self.open_orders)):
+                if self.open_orders[index].id == order.id:
+                    self.open_orders[index].price= order.price
+                    self.open_orders[index].long = order.long
+                    self.open_orders[index].size = order.size
+                    self.open_orders[index].stop = order.stop
+
+    def cancel_orders(self,_id=None,backtest=False):
+        if _id is None:
+            if not backtest:
+                self.api.cancel_all_order(self.symbol)
+            self.open_orders=[]
+        else:
+            if not backtest:
+                self.api.cancel_order(_id,self.symbol)
+            for order in self.open_orders.copy():
+                if order.id == _id:
+                    self.open_orders.remove(order)
+
+    def close_order(self, order:'Strategy.Order',backtest=False):
+        error = False
+        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min_qty
+        if self.position is not None and order.size > 0 :
+            if not backtest:
+                try:
+                    response = self.api.send_order(self.symbol, 'sell' if self.position.long else 'buy', order.size, 'market')
+                    order.size=response['size']
+                    order.price=response['price']
+                except BaseException as exception:
+                    error=True
+                    strategy_logger.exception(exception)
+            if not error:
+                size_left = order.size
+                while size_left > 0 and len(self.open_trades) > 0:
+                    trade = self.open_trades.pop(0)
+                    size_left = trade.close_trade(order.time, order.price, order.size)
+                    if size_left < 0:
+                        self.open_trades.insert(0, Strategy.Trade(self, trade.open_time, trade.open_price, trade.long,
+                                                                  abs(size_left), open_name=trade.open_name))
+                    trade.close_name = order.name
+                    self.closed_trades.append(trade)
+                self.set_position()
 
 
     def check_orders(self, candle):
         orders_filled = []
 
         for index, order in enumerate(self.open_orders):
-            #trade_logger.info('Order: '+order.name+' '+str(order.limit)+' '+str(order.long)+' '+str(order.stop)+' '+str(order.qty))
             if order.check_order(candle) is not None:
                 orders_filled.append(self.open_orders.pop(index))
 
@@ -583,30 +565,35 @@ class Strategy:
 
 
     class Order:
-        def __init__(self, qty, limit:float=None, long=True, stop=False, name=None,_id=None,_time=None):
-            self.id=_id
+        def __init__(self, size, price:float=None, long=True, _type:Literal['limit','market']='market',stop=False, name=None,_time=None,_id=None,_margin=None):
+            self.id = _id
             self.time = _time
-            self.limit = limit
-            self.qty = qty
+            self.price= price
+            self.size = size
             self.long = long
+            self.type = _type
             self.stop = stop
             self.name = name
+            self.margin = _margin
+
+        def __str__(self):
+            return f"{'Stop' if self.stop else self.type} order {'('+self.name+')' if self.name is not None else ''} : {'buy' if self.long else 'sell'} {self.size} @{self.price}"
 
         def check_order(self, candle):
             if self.stop:
-                if self.long and candle['High'] > self.limit:
+                if self.long and candle['High'] > self.price:
                     return True
-                if not self.long and candle['Low'] < self.limit:
+                if not self.long and candle['Low'] < self.price:
                     return True
-            elif self.limit is not None:
-                if self.long and candle['Low'] < self.limit:
+            elif self.price is not None:
+                if self.long and candle['Low'] < self.price:
                     return True
                 if not self.long and candle['High'] > self.stop:
                     return True
 
         def equals(self,order:'Strategy.Order'):
-            if self.limit!=order.limit:return False
-            if self.qty!=order.qty:return False
+            if self.price!=order.price:return False
+            if self.size!=order.size:return False
             if self.long!=order.long:return False
             if self.stop!=order.stop:return False
             if self.id!=order.id:return False

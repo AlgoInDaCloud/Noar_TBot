@@ -83,7 +83,7 @@
                             <th class="col-1">Name</th>
                             <th class="col-1">Side</th>
                             <th class="col-1">Price</th>
-                            <th class="col-1">Qty</th>
+                            <th class="col-1">Size</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,8 +91,8 @@
                         <tr>
                             <td>{{order.name}}</td>
                             <td>{% if order.long %}Buy{%else%}Sell{%endif%}{% if order.stop %} stop{%endif%}</td>
-                            <td>{{order.limit}}</td>
-                            <td>{{order.qty}}</td>
+                            <td>{{order.price}}</td>
+                            <td>{{order.size}}</td>
                         </tr>
                     {% endfor %}
                     </tbody>

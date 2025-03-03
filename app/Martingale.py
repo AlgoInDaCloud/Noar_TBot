@@ -22,26 +22,14 @@ class MartingaleStrategy:
         self.rsi_trade_levels={'buy':int(parameters['rsi_os']),'sell':int(parameters['rsi_ob'])}
         self.candle_duration = Candles.timeframe_to_seconds(self.timeframe)
         self.min_bars_back=100 #Min candles history to have relevant signals
+        self.backtest=_backtest
 
         #Set objects
         self.api=Api(self.platform_api)
         self.strategy=Strategy(None,self.initial_capital,self.leverage,start_date=self.start_date,api=self.api,symbol=self.symbol)
 
-        #Set backtest or trade functions
-        self.trade_function = self.strategy.open_trade
-        self.order_function = self.strategy.open_order
-        self.cancel_order_function = self.strategy.cancel_orders
-        self.close_order_function = self.strategy.close_order
-        self.edit_order_function = self.strategy.edit_order
-        if _backtest:
-            self.trade_function=self.strategy.log_trade
-            self.order_function=self.strategy.log_order
-            self.cancel_order_function = self.strategy.remove_log_orders
-            self.close_order_function = self.strategy.log_close_order
-            self.edit_order_function = self.strategy.edit_log_order
-
         #Initialize variables
-        self.stop_loss = None
+        self.stop_loss_price = None
         self.close_qty=0
         self.last_close_price = 0
 
@@ -64,21 +52,20 @@ class MartingaleStrategy:
                 else:
                     trade_logger.warning("Error:Not enough capital for trading")
         else:  # If in trade, check if TP, martingales ou SL orders have been triggered, and update runups/drawdowns
-            if self.stop_loss is None or self.stop_loss == 0:  # if still in martingale phase
-                if self.stop_loss is None and candles.history[current_index]['Close'] > self.strategy.position.open_price * (
+            if self.stop_loss_price is None or self.stop_loss_price == 0:  # if still in martingale phase
+                if self.stop_loss_price is None and candles.history[current_index]['Close'] > self.strategy.position.open_price * (
                         1 + self.profit_sl_activation):
                     trade_logger.info('SL activation')
-                    self.stop_loss = 0  # activate SL calculation if price rise above parameter
+                    self.stop_loss_price = 0  # activate SL calculation if price rise above parameter
 
-                if self.stop_loss == 0 and candles.history[current_index]['PivotsHL']['low'] is not None and candles.history[current_index]['PivotsHL']['low'] > self.strategy.position.open_price:  # If pivot in profit, activate SL and deactivate the rest
-                    self.cancel_order_function()
-                    self.stop_loss = candles.history[current_index]['PivotsHL']['low']
-                    self.order_function(self.stop_loss, False,self.strategy.position.qty,'SL',True)
-                    trade_logger.info(f"SL : {datetime.fromtimestamp(candles.history[current_index]['Time'])} Sell {self.strategy.position.qty} @ {self.stop_loss}")
+                if self.stop_loss_price == 0 and candles.history[current_index]['PivotsHL']['low'] is not None and candles.history[current_index]['PivotsHL']['low'] > self.strategy.position.open_price:  # If pivot in profit, activate SL and deactivate the rest
+                    self.strategy.cancel_orders()
+                    self.stop_loss_price = candles.history[current_index]['PivotsHL']['low']
+                    self.strategy.open_order(self.strategy.Order(self.strategy.position.qty,self.stop_loss_price, not self.strategy.position.long,'market',True,'SL',candles.history[current_index]['Time']),self.backtest)
+                    trade_logger.info(f"SL : {datetime.fromtimestamp(candles.history[current_index]['Time'])} Sell {self.strategy.position.qty} @ {self.stop_loss_price}")
 
             if self.close_qty>0 and self.tp_condition(candles.history[current_index], candles.history[current_index + 1]):  # Check for signal and if enough funds for tp
-                    self.close_order_function(int(candles.history[current_index]['Time']),
-                                             self.close_qty, "TP", candles.history[current_index]['Close'])
+                    self.strategy.close_order(self.strategy.Order(self.close_qty,candles.history[current_index]['Close'],not self.strategy.position.long,'market',False,'TP',int(candles.history[current_index]['Time'])),self.backtest)
                     candles.history[current_index]['Trade'] = "TP"
                     trade=self.strategy.closed_trades[-1]
                     trade_logger.info(f"TP : {datetime.fromtimestamp(int(candles.history[current_index]['Time']))} Sell {trade.qty} @{trade.close_price} /{self.close_qty},{candles.history[current_index]['Close']}")
@@ -87,47 +74,54 @@ class MartingaleStrategy:
                         self.strategy.open_orders=[]
                         self.last_close_price=0
                         self.close_qty=0
-                        self.stop_loss=None
+                        self.stop_loss_price=None
 
             orders_filled = self.strategy.check_orders(candles.history[current_index])
             for order in orders_filled:
-                trade_logger.info(f"{order.name} order filled : {datetime.fromtimestamp(candles.history[current_index]['Time'])} {'Buy' if order.long else 'Sell'} {order.qty} @{order.limit}")
+                order.time = candles.history[current_index]['Time']
+
+                trade_logger.info(f"{order.name} order filled : {datetime.fromtimestamp(order.time)} {'Buy' if order.long else 'Sell'} {order.size} @{order.price}")
                 if order.stop:
-                    self.close_order_function(candles.history[current_index]['Time'], order.qty, "SL", order.limit)
+                    self.strategy.close_order(self.strategy.Order(order),True) # Only log the transaction
                     candles.history[current_index]['Trade'] = "SL"
                     self.last_close_price = 0
-                    self.stop_loss = None
+                    self.stop_loss_price = None
                     self.strategy.liquidation_price=None
-                elif order.limit is not None:
-                    self.trade_function(candles.history[current_index]['Time'],order.limit, True, order.qty, order.name)
+                elif order.price is not None:
+                    order.type='market'
+                    self.strategy.open_order(order,True)
                     candles.history[current_index]['Trade'] = "Mart"
 
             if self.strategy.position is not None and candles.history[current_index]['Low'] < self.strategy.position.get_liquidation_price():  # if liquidated...sorry dude
                 trade_logger.info('Liquidation')
-
-                self.strategy.log_close_order(candles.history[current_index]['Time'],
-                                         self.strategy.position.qty, "Liquidation", self.strategy.position.get_liquidation_price())
+                order=self.strategy.Order(self.strategy.position.qty,self.strategy.position.get_liquidation_price(),not self.strategy.position.long,'market',False,'Liquidation',candles.history[current_index]['Time'])
+                self.strategy.close_order(order,True) # Only log the transaction
                 self.last_close_price = 0  # reset variables
-                self.stop_loss = None
-            if (self.stop_loss is not None and self.stop_loss > 0
-                    and candles.history[current_index]['PivotsHL']['low'] is not None and candles.history[current_index]['PivotsHL']['low']>self.stop_loss):
+                self.stop_loss_price = None
+            if (self.stop_loss_price is not None and self.stop_loss_price > 0
+                    and candles.history[current_index]['PivotsHL']['low'] is not None and candles.history[current_index]['PivotsHL']['low']>self.stop_loss_price):
                 trade_logger.info('Editing SL')
-                self.edit_order_function(self.strategy.open_orders[0].id,candles.history[current_index]['PivotsHL']['low'],self.strategy.open_orders[0].long,self.strategy.open_orders[0].qty,True,self.symbol)
+                order=self.strategy.open_orders[0]
+                order.price=candles.history[current_index]['PivotsHL']['low']
+                self.strategy.edit_order(order,self.backtest)
         return
 
     def launch_martingale(self, time, _initial_price, _long, _amount_per_order, _initial_qty, _security=0.005):
         temp_strategy = Strategy(leverage=self.strategy.leverage,
                                  taker_fee=self.strategy.taker_fee)
-        self.trade_function(time, _initial_price, _long, _initial_qty, 'Entry')
-        temp_strategy.log_trade(time, _initial_price, _long, _initial_qty)
+        order=self.strategy.Order(_initial_qty,_initial_price,_long,'market',False,'Entry',time)
+        self.strategy.open_order(order,self.backtest)
+        temp_strategy.open_order(order,True)
         trade=self.strategy.open_trades[-1]
         trade_logger.info(f"Entry : {datetime.fromtimestamp(trade.open_time)} {'buy'if trade.long else 'sell'} {trade.qty} @{trade.open_price}")
+        order.type='limit'
         for i in range(self.martingale_number):
-            mart_price = temp_strategy.position.get_liquidation_price() * (1 + _security)
-            mart_qty = round(_amount_per_order / mart_price, 4)
-            self.order_function(mart_price, _long, mart_qty,"Mart" + str(i) + "/" + str(self.martingale_number),False)
-            temp_strategy.log_trade(time, mart_price, _long, mart_qty)
-            trade_logger.info(f"Mart{i} : {datetime.fromtimestamp(time)} {'buy' if _long else 'sell'} {mart_qty} @{mart_price}")
+            order.price = temp_strategy.position.get_liquidation_price() * (1 + _security)
+            order.size = round(_amount_per_order / order.price, 4)
+            order.name = "Mart" + str(i+1) + "/" + str(self.martingale_number)
+            self.strategy.open_order(order,self.backtest)
+            temp_strategy.open_order(order,True)
+            trade_logger.info(f"Mart{i+1} : {datetime.fromtimestamp(order.time)} {'buy' if order.long else 'sell'} {order.size} @{order.price}")
         self.strategy.liquidation_price=temp_strategy.position.get_liquidation_price()
         del temp_strategy
 
@@ -183,7 +177,7 @@ class MartingaleStrategy:
                 self.strategy = Strategy(None, self.initial_capital, self.leverage, start_date=self.start_date,
                                          api=self.api, symbol=self.symbol)
                 # Initialize variables
-                self.stop_loss = None
+                self.stop_loss_price = None
                 self.close_qty = 0
                 self.last_close_price = 0
                 return_value=2 #If strategy resets, return 2 to reset candles
@@ -195,10 +189,10 @@ class MartingaleStrategy:
         if len(state.strategy.open_orders)>0:
             for index,order in enumerate(state.strategy.open_orders):
                 if order.stop:
-                    order.name='SL'
-                    self.stop_loss=order.limit
-                else:
-                    order.name='Mart'+str(index+1)+'/'+str(self.martingale_number)
+                    #order.name='SL'
+                    self.stop_loss_price=order.price
+                #else:
+                #    order.name='Mart'+str(index+1)+'/'+str(self.martingale_number)
         self.strategy.open_orders=state.strategy.open_orders
         self.strategy.set_position()
         if self.strategy.position.qty is not None:

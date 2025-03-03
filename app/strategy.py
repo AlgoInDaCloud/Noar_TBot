@@ -1,6 +1,7 @@
 import threading
 import time
 import importlib
+import copy
 from app.models import Candles
 from app.logging import app_logger, strategy_logger
 
@@ -25,8 +26,12 @@ class Bot(threading.Thread):
             try:
                 self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
+                if len(self.strategy.strategy.open_orders)>0:
+                    order=self.strategy.strategy.open_orders[0]
+                    order.price=93000
+                    self.strategy.strategy.edit_order(order)
                 app_logger.info(f"{'Platform and bot dont match' if not self.check_state(self.get_platform_state()) else 'Platform and bot match !'}")
-                while True:    
+                while True:
                     if self.stop_signal:
                         app_logger.info("Received stop signal : stopping")
                         break
@@ -97,12 +102,11 @@ class Bot(threading.Thread):
         # self.strategy.capital = current_position.pop('capital')
         if current_position:
             platform_state.strategy.last_known_price = current_position.pop('last_known_price')
-            platform_state.strategy.log_trade(**current_position)
+            platform_state.strategy.open_order(platform_state.strategy.Order(current_position['size'], current_position['open_price'], current_position['long'], 'market',False, 'Fetched_position',current_position['open_time'],None,current_position['margin']),True)
         if open_orders is not None:
-            no_state = False
             for index, order in enumerate(open_orders):
-                platform_state.strategy.log_order(order['price'], order['long'], order['qty'], None, order['stop'],
-                                        order['id'])
+                print(order)
+                platform_state.strategy.open_order(platform_state.strategy.Order(order['size'],order['price'], order['long'],'market' if order['stop'] else 'limit', order['stop'], 'Fetched_order', _id=order['id']),True)
         return platform_state
 
     def check_state(self,state):
@@ -116,7 +120,7 @@ class Bot(threading.Thread):
         if len(state.strategy.open_orders)!=len(self.strategy.strategy.open_orders):
             return False
         if len(state.strategy.open_orders)>0:
-            for index,order in enumerate(self.strategy.strategy.open_orders.copy()):
+            for index,order in enumerate(copy.deepcopy(self.strategy.strategy.open_orders)):
                 order.name=None
                 if not state.strategy.open_orders[index].equals(order):
                     return False

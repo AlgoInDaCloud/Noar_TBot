@@ -23,6 +23,7 @@ class Api:
                         'password':api_config['api_pwd'],
                         'newUpdates': False
                     })
+            #exchange.set_sandbox_mode(backtest)
             return exchange
         except BaseException as exception:
             api_logger.exception(exception)
@@ -88,16 +89,17 @@ class Api:
                         response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
                     else:
                         response = self.exchange.fetch_order(_id, _symbol)
-                    return {'id': response['id'], 'price': response['price'] if not _stop else response['stopPrice'], 'avg_price': response['average'],
+                    api_logger.info(f"{self.exchange.markets[_symbol]}")
+                    return {'id': response['id'], 'price': response['stopPrice'] if _stop else response['average'] if response['average'] is not None else response['Price'],
                             'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
                             'fee': response['fee']}
         except BaseException as exception:
-            api_logger.exception(exception['code'])
             api_logger.exception(exception)
 
 
     def edit_order(self,_id,_symbol,_side,_amount,_price,_type:Literal['limit','market']='limit',_stop=False,_hedged=False):
         try:
+            #api_logger.info(f"{self.get_order(_id,_symbol,_stop)}")
             trade_logger.info("Edit" + "stop" if _stop else "limit" + "order"  + " : "+_symbol+ " " + _side.capitalize() + " " + str(_amount) +" @ "+ str(_price))
             param = {}
             match self.exchange_name.lower():
@@ -119,7 +121,7 @@ class Api:
             match self.exchange_name.lower():
                 case str(x) if "bitget" in x:
                     if not ('cTime' in response):return False
-                    return {'open_time':int(response['cTime'])/1000,'open_price':float(response['openPriceAvg']),'long':True if response['holdSide']=='long' else False,'qty':float(response['total']),'margin':float(response['marginSize']),'last_known_price':float(response['markPrice'])}
+                    return {'open_time':int(response['cTime'])/1000,'open_price':float(response['openPriceAvg']),'long':True if response['holdSide']=='long' else False,'size':float(response['total']),'margin':float(response['marginSize']),'last_known_price':float(response['markPrice'])}
         except BaseException as exception:
             api_logger.exception(exception)
 
@@ -133,7 +135,7 @@ class Api:
                 for index, order in enumerate(response):
                     match self.exchange_name.lower():
                         case str(x) if "bitget" in x:
-                            orders.append({'price':order['price'] if order['price'] is not None else order['stopPrice'],'long':True if order['side']=='buy' else False,'qty':order['amount'],'name':'test','stop':True if order['stopLossPrice'] is not None else False,'id':order['id']})
+                            orders.append({'price':order['price'] if order['price'] is not None else order['stopPrice'],'long':True if order['side']=='buy' else False,'size':order['amount'],'name':'test','stop':True if order['stopLossPrice'] is not None else False,'id':order['id']})
                 return orders
         except BaseException as exception:
             api_logger.exception(exception)
