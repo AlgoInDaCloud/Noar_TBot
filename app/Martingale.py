@@ -39,6 +39,7 @@ class MartingaleStrategy:
 
 
     def apply_strategy(self,candles:Candles,current_index=0):
+        self.update_filled_orders(candles.history[current_index])
         self.strategy.last_known_price = candles.history[current_index]['Close']
         self.strategy.set_runup_drawdown(candles.history[current_index])
         if self.strategy.position is None:
@@ -68,7 +69,6 @@ class MartingaleStrategy:
                     self.sl_order.long=not self.strategy.position.long
                     self.sl_order.time=int(candles.history[current_index]['Time'])
                     self.strategy.open_order(self.sl_order,self.backtest)
-                    trade_logger.info(f"{order}")
             if self.close_qty>0 \
                 and self.tp_condition(candles.history[current_index], candles.history[current_index + 1]):  # Check for signal and if enough funds for tp
                     self.tp_order.price=candles.history[current_index]['Close']
@@ -84,21 +84,6 @@ class MartingaleStrategy:
                         self.tp_order.price=0
                         self.tp_order.size=0
                         self.sl_order.price=None
-
-            orders_filled = self.strategy.check_orders(candles.history[current_index])
-            for order in orders_filled:
-                order.time = candles.history[current_index]['Time']
-                trade_logger.info(f"Order filled : {order}")
-                if order.stop:
-                    self.strategy.close_order(self.strategy.Order(order),True) # Only log the transaction
-                    candles.history[current_index]['Trade'] = "SL"
-                    self.tp_order.price = 0
-                    self.sl_order.price = None
-                    self.strategy.liquidation_price=None
-                elif order.price is not None:
-                    order.type='market'
-                    self.strategy.open_order(order,True)
-                    candles.history[current_index]['Trade'] = 'Filled :'+order.name
 
             if self.strategy.position is not None and candles.history[current_index]['Low'] < self.strategy.position.get_liquidation_price():  # if liquidated...sorry dude
                 trade_logger.info('Liquidation')
@@ -211,5 +196,19 @@ class MartingaleStrategy:
         if self.strategy.position.qty is not None:
             self.tp_order.size = round(self.strategy.min_qty * int(round((self.strategy.position.qty * self.tp_qty_percent) / self.strategy.min_qty,10)),10) # Recalculate TP qty
 
-
+    def update_filled_orders(self, candle):
+        orders_filled = self.strategy.check_orders(candle)
+        for order in orders_filled:
+            order.time = candle['Time']
+            trade_logger.info(f"Order filled : {order}")
+            if order.stop:
+                self.strategy.close_order(self.strategy.Order(order), True)  # Only log the transaction
+                candle['Trade'] = "SL"
+                self.tp_order.price = 0
+                self.sl_order.price = None
+                self.strategy.liquidation_price = None
+            elif order.price is not None:
+                order.type = 'market'
+                self.strategy.open_order(order, True)
+                candle['Trade'] = 'Filled :' + order.name
 

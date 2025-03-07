@@ -160,5 +160,7 @@ class Bot(threading.Thread):
                     return False
         return True
 
+
+
     class MisalignmentError(Exception):
         pass

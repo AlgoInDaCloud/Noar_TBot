@@ -305,13 +305,14 @@ class Strategy:
             try:
                 self.api.set_position_mode(self.symbol,False)
                 self.api.set_margin_mode(self.symbol, False)
+                self.api.set_leverage(self.symbol, self.leverage)
+                self.taker_fee = self.api.exchange.markets[self.symbol]['taker']
+                self.maker_fee = self.api.exchange.markets[self.symbol]['maker']
+                self.min_qty = self.taker_fee = self.api.exchange.markets[self.symbol]['limits']['amount']['min']
+                self.maintenance_margin = self.api.fetch_margin_rate(self.symbol)
             except BaseException as exception:
                 strategy_logger.exception(exception)
-            self.api.set_leverage(self.symbol,self.leverage)
-            self.taker_fee=self.api.exchange.markets[self.symbol]['taker']
-            self.maker_fee = self.api.exchange.markets[self.symbol]['maker']
-            self.min_qty=self.taker_fee=self.api.exchange.markets[self.symbol]['limits']['amount']['min']
-            self.maintenance_margin=self.api.fetch_margin_rate(self.symbol)
+
 
 
     def set_position(self):

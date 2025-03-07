@@ -1,5 +1,6 @@
 import threading
 from configparser import ConfigParser
+
 from app.files_rw import read_config_file
 from app.strategy import Bot
 from app.threads import get_bots_threads, get_thread_by_name
@@ -32,6 +33,8 @@ def login_function():
 
 #Bot function
 def bot_function(strategy_name=None,action=None):
+    if strategy_name=="asset_manager":
+        return asset_manager(strategy_name,action)
     backtest_strategy = None
     candles = None
     #Get strategy parameters
@@ -96,9 +99,24 @@ def bot_function(strategy_name=None,action=None):
 @app.route('/index')
 @login_required
 def index():
+    import requests
+    response=""
     try:
+        retry=0
+        while retry<3:
+            try:
+                response=requests.get('https://api.bitget.com/api/v2/mix/order/place-order')
+                response.raise_for_status()
+                print(response.status_code)
+                break
+            except requests.HTTPError as e:
+                retry+=1
+                print(e)
+                print("sleep 5")
+                sleep(5)
         return render_template('index.html', title='Home', threads=get_bots_threads())
     except BaseException as exception:
+        print(response.status_code)
         routes_logger.exception(exception)
         return render_template('error.html',title="Error during execution")
 
@@ -130,3 +148,11 @@ def logout():
 @app.template_filter('format_timestamp')
 def format_timestamp(timestamp,format='%d-%m-%Y %H:%M:%S'):
     return datetime.fromtimestamp(timestamp).strftime(format) # datetime.datetime.fromtimestamp(s)
+
+import app.wip.AssetManager
+def asset_manager(strategy_name,action):
+    bot_thread = Bot()
+    bot_thread.strategy=app.wip.AssetManager.AssetManagerStrategy({'api':'BITGET_REAL','timeframe':'1D'},False)
+    bot_thread.name = "AssetManager-bot"
+    markets=bot_thread.strategy.api.exchange.markets
+    return render_template('wip/asset_manager.html',title=bot_thread.name,markets=markets)
