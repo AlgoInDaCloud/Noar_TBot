@@ -9,7 +9,6 @@ from app.api import Api
 from app.files_rw import correct_types_from_strings, CsvRW, read_config_file
 from app.logging import strategy_logger
 
-
 class User(UserMixin):
     def __init__(self):
         self.password_hash = app.config['PWD_KEY']
@@ -67,7 +66,7 @@ class Candles:
         new_lines=self.get_history_api(since,oldest_time-1)
         for api_line in new_lines:
             if int(float(api_line['Time'])) >= oldest_time: break  # Stop adding lines after first existing log (or current time) is reached
-            api_line = self.calc_indicators(api_line, indicators)
+            api_line = self.calc_indicators(indicators, api_line)
             csv_rw.write_line(list(api_line.values()))
             since = int(float(api_line['Time']))
         del new_lines
@@ -81,18 +80,18 @@ class Candles:
                 new_lines=self.get_history_api(since+1,time_line-1)
                 for api_line in new_lines:
                     if int(float(api_line['Time'])) >= time_line: break  # Stop adding lines after first existing log (or current time) is reached
-                    api_line = self.calc_indicators(api_line, indicators)
+                    api_line = self.calc_indicators(indicators, api_line)
                     csv_rw.write_line(list(api_line.values()))
                     since = int(float(api_line['Time']))
                 del new_lines
             # Finally, write the csv line
-            csv_line = self.calc_indicators(csv_line, indicators)
+            csv_line = self.calc_indicators(indicators, csv_line)
             csv_rw.write_line(list(csv_line.values()))
             since = int(float(csv_line['Time']))
         # Write the last lines from API
         new_lines = self.get_history_api(since+1,closed=True)
         for api_line in new_lines:
-            api_line = self.calc_indicators(api_line, indicators)
+            api_line = self.calc_indicators(indicators, api_line)
             csv_rw.write_line(list(api_line.values()))
         del new_lines
         # Replace file by temp file and close all
@@ -123,7 +122,7 @@ class Candles:
         history = self.get_history_api(None, bars=min_bars_back,closed=closed) # Get necessary candles
         if indicators is not None:
             for index,candle in enumerate(history):
-                history[index]=self.calc_indicators(candle,indicators) #Calc indicators
+                history[index]=self.calc_indicators(indicators, candle) #Calc indicators
         append=CsvRW(self.csv_file_path)
         append.safe_append_to_csv(history)
         del append
@@ -136,7 +135,7 @@ class Candles:
         lines_added=len(new_lines)
         if indicators is not None:
             for index,candle in enumerate(new_lines):
-                new_lines[index]=self.calc_indicators(candle,indicators)
+                new_lines[index]=self.calc_indicators(indicators, candle)
         append=CsvRW(self.csv_file_path)
         append.safe_append_to_csv(new_lines)
         del append
@@ -172,13 +171,23 @@ class Candles:
 
     ###### INDICATORS METHODS ######
 
-    def calc_indicators(self, candle,indicators: Dict):
+    def calc_indicators(self, indicators: Dict, candle=None):
         if 'RSI' in indicators:
-            if not 'RSI' in self.calculators:self.calculators['RSI']=self.RSICalculator(14)
-            candle['RSI']=self.calculators['RSI'].calc_rsi(**candle)
+            if candle is None:
+                self.calculators['RSI']=self.RSICalculator(indicators['RSI']) #reinitialize calculator to recalculate
+                for candl in self.history[::-1]:
+                    candl['RSI']=self.calculators['RSI'].calc_rsi(**candl)
+            else: 
+                if not 'RSI' in self.calculators:self.calculators['RSI']=self.RSICalculator(indicators['RSI']) #initialize calculator if not exists
+                candle['RSI']=self.calculators['RSI'].calc_rsi(**candle)
         if 'PivotsHL' in indicators:
-            if not 'PivotsHL' in self.calculators:self.calculators['PivotsHL']=self.PivotCalculator(10)
-            candle['PivotsHL']=self.calculators['PivotsHL'].calc_pivots(candle)
+            if candle is None:
+                self.calculators['PivotsHL']=self.PivotCalculator(indicators['PivotsHL']) #reinitialize calculator to recalculate
+                for candl in self.history[::-1]:
+                    candl['PivotsHL']=self.calculators['PivotsHL'].calc_pivots(candl)
+            else:
+                if not 'PivotsHL' in self.calculators:self.calculators['PivotsHL']=self.PivotCalculator(indicators['PivotsHL'])
+                candle['PivotsHL']=self.calculators['PivotsHL'].calc_pivots(candle)
         return candle
 
     class RSICalculator:
@@ -225,10 +234,10 @@ class Candles:
             if len(self.highs) > (2 * self.width + 1):
                 self.highs.pop(0)
                 self.lows.pop(0)
-                if self.highs[10] == max(self.highs):
-                    self.pivots['high'] = self.highs[10]
-                elif self.lows[10] == min(self.lows):
-                    self.pivots['low'] = self.lows[10]
+                if self.highs[self.width] == max(self.highs):
+                    self.pivots['high'] = self.highs[self.width]
+                elif self.lows[self.width] == min(self.lows):
+                    self.pivots['low'] = self.lows[self.width]
                 if self.pivots['low'] is not None and self.pivots['low'] > float(candle['Low']):
                     self.pivots['low'] = None
                 if self.pivots['high'] is not None and self.pivots['high'] < float(candle['High']):
@@ -318,7 +327,7 @@ class Strategy:
         self.position = position
 
     def open_order(self, order:'Strategy.Order',backtest=False):
-        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min-qty
+        order.size = round(self.min_qty * int(round(order.size/self.min_qty,10)),10) #truncate to min-qty
         error=False
         if not backtest:
             try:
@@ -341,7 +350,8 @@ class Strategy:
 
     def edit_order(self,order:'Strategy.Order',backtest=False):
         error=False
-        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min-qty
+        order.size = round(self.min_qty * int(round(order.size/self.min_qty,10)),10) #truncate to min-qty
+        strategy_logger.info(f"{order}")
         if not backtest:
             try:
                 response=self.api.edit_order(order.id,self.symbol,'buy' if order.long else 'sell',order.size,order.price,order.type,order.stop)
@@ -350,6 +360,7 @@ class Strategy:
                 order.long=response['long']
                 order.size=response['size']
             except BaseException as exception:
+                strategy_logger.info(f"error on order={order}")
                 error=True
                 strategy_logger.exception(exception)
         if not error:
@@ -576,7 +587,7 @@ class Strategy:
             self.margin = _margin
 
         def __str__(self):
-            return f"{'Stop' if self.stop else self.type} order {'('+self.name+')' if self.name is not None else ''} : {'buy' if self.long else 'sell'} {self.size} @{self.price}"
+            return f"{'Stop' if self.stop else self.type} order {'('+self.name+')' if self.name is not None else ''} : {'buy' if self.long else 'sell'} {self.size} @{self.price} id={self.id} time={self.time} margin={self.margin}"
 
         def check_order(self, candle):
             if self.stop:

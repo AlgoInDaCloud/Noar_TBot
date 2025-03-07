@@ -62,13 +62,13 @@ class Api:
                     if _stop:
                         param['stopLossPrice'] = _price
                         param['holdSide'] = 'buy' if _side=='sell' else 'sell'
+                        _price=None
                         if _qty is not None:
                             param['planType']='loss_plan'
                         _type='market'
                     if not _hedged:
                         param['oneWayMode'] = True
             response=self.exchange.create_order(_symbol, _type, _side, _qty, price = _price, params = param)
-            api_logger.info("sendorderRespId=%s", response['id'])
             time.sleep(1)
             temp=self.get_order(response['id'], _symbol,_stop)
             return temp
@@ -95,19 +95,24 @@ class Api:
             api_logger.exception(exception)
 
 
-    def edit_order(self,_id,_symbol,_side,_amount,_price,_type:Literal['limit','market']='limit',_stop=False,_hedged=False):
+    def edit_order(self,_id,_symbol,_side,_size,_price,_type:Literal['limit','market']='limit',_stop=False,_hedged=False):
         try:
             #api_logger.info(f"{self.get_order(_id,_symbol,_stop)}")
-            trade_logger.info("Edit" + "stop" if _stop else "limit" + "order"  + " : "+_symbol+ " " + _side.capitalize() + " " + str(_amount) +" @ "+ str(_price))
+            trade_logger.info(f"Edit {'stop' if _stop else 'limit'} order : {_symbol} {_side.capitalize()} {str(_size)} @{str(_price)}")
             param = {}
             match self.exchange_name.lower():
                 case str(x) if "bitget" in x:
                     if _stop:
                         param['stopLossPrice'] = _price
+                        param['holdSide'] = 'buy' if _side=='sell' else 'sell'
+                        _price=None
+                        if _size is not None:
+                            param['planType']='loss_plan'
+                        _type='market'
                     if not _hedged:
                         param['oneWayMode'] = True
-
-            response=self.exchange.edit_order(_id, _symbol, _type, _side, _amount, price=_price, params=param)
+            trade_logger.info(f"{param}, {_price}")
+            response=self.exchange.edit_order(_id, _symbol, _type, _side, _size, price=_price, params=param)
             time.sleep(1)
             return self.get_order(response['id'], _symbol,_stop)
         except BaseException as exception:

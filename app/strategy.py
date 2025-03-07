@@ -39,8 +39,8 @@ class Bot(threading.Thread):
                         self.candles.get_candles_history(28, self.strategy.indicators)
                         lines_added=1
                     elif config_update_action==1: #if indicators need recalculation
-                        self.candles.update_history(self.strategy.indicators)
-                        #self.candles.calc_indicators(self.strategy.indicators)
+                        self.candles.calc_indicators(self.strategy.indicators)
+                        self.candles.update_history(self.strategy.indicators) 
                         lines_added=1
                     else:
                         lines_added=self.candles.update_history(self.strategy.indicators)
@@ -111,21 +111,54 @@ class Bot(threading.Thread):
     def check_state(self,state):
         if self.strategy.strategy.position is None:
             if state.strategy.position is not None:
+                strategy_logger.warning('Currently holding position on platform')
                 return False
         elif state.strategy.position is None :
+            strategy_logger.warning('Not holding position on platform')
             return False
         elif not self.strategy.strategy.position.equals(state.strategy.position):
+            stri=""
+            if self.strategy.strategy.position.long!=state.strategy.position.long:stri+="long differ,"
+            if self.strategy.strategy.position.drawdown_price!=state.strategy.position.drawdown_price:stri+="dd differ,"
+            if self.strategy.strategy.position.runup_price!=state.strategy.position.runup_price:stri+="ru differ,"
+            if self.strategy.strategy.position.strategy!=state.strategy.position.strategy:stri+="strat differ,"
+            if self.strategy.strategy.position.id!=state.strategy.position.id:stri+="id differ,"
+            if self.strategy.strategy.position.open_time!=state.strategy.position.open_time:stri+="time differ,"
+            if self.strategy.strategy.position.open_price!=state.strategy.position.open_price:stri+="price differ,"
+            if self.strategy.strategy.position.close_price!=state.strategy.position.close_price:stri+="cprice differ,"
+            if self.strategy.strategy.position.close_time!=state.strategy.position.close_time:stri+="ctime differ,"
+            if self.strategy.strategy.position.close_name!=state.strategy.position.close_name:stri+="cname differ,"
+            if self.strategy.strategy.position.qty!=state.strategy.position.qty:
+                stri+="size differ,"
+                strategy_logger.info(f"bot={self.strategy.strategy.position.qty}, platform={state.strategy.position.qty}")
+            if self.strategy.strategy.position.open_name!=state.strategy.position.open_name:stri+="name differ,"
+            if self.strategy.strategy.position.margin!=state.strategy.position.margin:stri+="margin differ"
+            strategy_logger.warning(f'Positions differ:{stri}')
             return False
         if len(state.strategy.open_orders)!=len(self.strategy.strategy.open_orders):
+            strategy_logger.warning('Number of orders differ')
             return False
         if len(state.strategy.open_orders)>0:
             for index,order in enumerate(copy.deepcopy(self.strategy.strategy.open_orders)):
                 order.name=None
+                state.strategy.open_orders[index].name=None
                 if not state.strategy.open_orders[index].equals(order):
+                    strategy_logger.warning('Order differ')
+                    strategy_logger.info(f"{order}")
+                    strategy_logger.info(f"{state.strategy.open_orders[index]}")
+                    stri=""
+                    if order.id!=state.strategy.open_orders[index].id:stri+="id differ,"
+                    if order.time!=state.strategy.open_orders[index].time:stri+="time differ,"
+                    if order.price!=state.strategy.open_orders[index].price:stri+="price differ,"
+                    if order.size!=state.strategy.open_orders[index].size:stri+="size differ,"
+                    if order.long!=state.strategy.open_orders[index].long:stri+="long differ,"
+                    if order.stop!=state.strategy.open_orders[index].stop:stri+="stop differ,"
+                    if order.type!=state.strategy.open_orders[index].type:stri+="type differ,"
+                    if order.name!=state.strategy.open_orders[index].name:stri+="long differ,"
+                    if order.margin!=state.strategy.open_orders[index].margin:stri+="margin differ"
+                    strategy_logger.info(f"{stri}")
                     return False
         return True
 
     class MisalignmentError(Exception):
         pass
-
-
