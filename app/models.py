@@ -386,7 +386,7 @@ class Strategy:
 
     def close_order(self, order:'Strategy.Order',backtest=False):
         error = False
-        order.size = self.min_qty * (int(order.size/self.min_qty)) #truncate to min_qty
+        order.size = round(self.min_qty * int(round(order.size/self.min_qty,10)),10) #truncate to min-qty
         if self.position is not None and order.size > 0 :
             if not backtest:
                 try:
@@ -409,13 +409,19 @@ class Strategy:
                 self.set_position()
 
 
-    def check_orders(self, candle):
+    def check_orders(self, candle, backtest=True):
         orders_filled = []
-
         for index, order in enumerate(self.open_orders):
-            if order.check_order(candle) is not None:
-                orders_filled.append(self.open_orders.pop(index))
-
+            if backtest
+                if order.check_order(candle) is not None:
+                    orders_filled.append(self.open_orders[index])
+            else:
+                try:
+                    upd_order=self.api.get_order(order.id,self.symbol,order.stop)
+                    if upd_order['filled']>0:
+                        order_filled.append(Strategy.Order(upd_order['id'],candle['Time'],upd_order['average'],upd_order['filled'], True if upd_order['side']=='buy' else False,order.type,order.stop,order.name,order.margin))
+                except BaseException as exception:
+                    srategy.logger.exception(exception)
         return orders_filled
 
     def get_realised_profit(self):
@@ -552,7 +558,7 @@ class Strategy:
             self.close_price = price
             self.close_time = _time
             # If trade bigger, reduce to order qty and return qty left in trade
-            close_qty_left = qty - self.qty
+            close_qty_left = round(qty - self.qty,10)
             if close_qty_left < 0:
                 self.qty = qty
             # Return qty left to close (positive) or qty left in trade (negative)

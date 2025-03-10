@@ -149,6 +149,7 @@ def logout():
 def format_timestamp(timestamp,format='%d-%m-%Y %H:%M:%S'):
     return datetime.fromtimestamp(timestamp).strftime(format) # datetime.datetime.fromtimestamp(s)
 
+'''
 import app.wip.AssetManager
 def asset_manager(strategy_name,action):
     bot_thread = Bot()
@@ -156,3 +157,4 @@ def asset_manager(strategy_name,action):
     bot_thread.name = "AssetManager-bot"
     markets=bot_thread.strategy.api.exchange.markets
     return render_template('wip/asset_manager.html',title=bot_thread.name,markets=markets)
+'''

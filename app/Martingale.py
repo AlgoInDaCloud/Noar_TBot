@@ -39,7 +39,7 @@ class MartingaleStrategy:
 
 
     def apply_strategy(self,candles:Candles,current_index=0):
-        self.update_filled_orders(candles.history[current_index])
+        #self.update_filled_orders(candles.history[current_index])
         self.strategy.last_known_price = candles.history[current_index]['Close']
         self.strategy.set_runup_drawdown(candles.history[current_index])
         if self.strategy.position is None:
@@ -199,10 +199,13 @@ class MartingaleStrategy:
     def update_filled_orders(self, candle):
         orders_filled = self.strategy.check_orders(candle)
         for order in orders_filled:
+            rep=self.api.get_order(order.id,self.symbol,order.stop)
+            trade_logger.info(f"repfilled={rep}")
             order.time = candle['Time']
             trade_logger.info(f"Order filled : {order}")
+            #Create execute_order function that takes care of updating object / careful, check_orders didn't delete order from open_orders => do that in that new function
             if order.stop:
-                self.strategy.close_order(self.strategy.Order(order), True)  # Only log the transaction
+                self.strategy.close_order(order, True)  # Only log the transaction
                 candle['Trade'] = "SL"
                 self.tp_order.price = 0
                 self.sl_order.price = None

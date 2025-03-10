@@ -52,7 +52,7 @@ class Api:
             api_logger.exception(exception)
             return list()
 
-    def send_order(self,_symbol,_side,_qty,_type:Literal['limit','market']='limit',_price=None,_stop=False,_hedged=False):
+    def send_order(self,_symbol,_side,_qty,_type:Literal['limit','market']='limit',_price=None,_stop=False,_hedged=False,_isolated=True):
         try:
             trade_logger.info(("Trade" if _type=='market' else ("Stop" if _stop else "Limit"))
                               + "order"  + " : "+_symbol+ " " + _side.capitalize() + " " + str(_qty) +" @ "+ str(_price))
@@ -62,12 +62,15 @@ class Api:
                     if _stop:
                         param['stopLossPrice'] = _price
                         param['holdSide'] = 'buy' if _side=='sell' else 'sell'
+                        param['triggerType']='fill_price'
                         _price=None
                         if _qty is not None:
                             param['planType']='loss_plan'
                         _type='market'
                     if not _hedged:
                         param['oneWayMode'] = True
+                    if _isolated:
+                        param['marginMode'] = 'isolated'
             response=self.exchange.create_order(_symbol, _type, _side, _qty, price = _price, params = param)
             time.sleep(1)
             temp=self.get_order(response['id'], _symbol,_stop)
@@ -85,17 +88,30 @@ class Api:
                     if _stop:
                         param['orderId']=_id
                         param['planType']='profit_loss'
-                        response = self.exchange.fetch_open_orders(symbol=_symbol, params=param)[0]
+                        raw=self.exchange.fetch_open_orders(symbol=_symbol, params=param)
+                        api_logger.info(f"raw1={raw}")
+                        if not len(raw)>0:
+                            raw=self.exchange.fetch_closed_orders(symbol=_symbol, params=param)
+                            api_logger.info(f"raw2={raw}")
+                        if len(raw)>0:
+                            response=raw[0]
+                            response['price'] = response.pop('stopPrice')
+                        else:
+                            response=None
                     else:
                         response = self.exchange.fetch_order(_id, _symbol)
-                    return {'id': response['id'], 'price': response['stopPrice'] if _stop else response['average'] if response['average'] is not None else response['price'],
-                            'size': response['amount'], 'long': (True if response['side'] == 'buy' else False),
-                            'fee': response['fee']}
+                        if response is not None:
+                            if response['average'] is not None:
+                                response['price'] = response.pop('average')
+                    if response is not None:
+                        if 'amount' in response: response['size']=response.pop('amount')
+                        if 'side' in response: response['long']= True if response['side'] == 'buy' else False
+                    return response
         except BaseException as exception:
             api_logger.exception(exception)
 
 
-    def edit_order(self,_id,_symbol,_side,_size,_price,_type:Literal['limit','market']='limit',_stop=False,_hedged=False):
+    def edit_order(self,_id,_symbol,_side,_size,_price,_type:Literal['limit','market']='limit',_stop=False,_hedged=False, _isolated=True):
         try:
             #api_logger.info(f"{self.get_order(_id,_symbol,_stop)}")
             trade_logger.info(f"Edit {'stop' if _stop else 'limit'} order : {_symbol} {_side.capitalize()} {str(_size)} @{str(_price)}")
@@ -111,6 +127,8 @@ class Api:
                         _type='market'
                     if not _hedged:
                         param['oneWayMode'] = True
+                    if _isolated:
+                        param['marginMode'] = 'isolated'
             trade_logger.info(f"{param}, {_price}")
             response=self.exchange.edit_order(_id, _symbol, _type, _side, _size, price=_price, params=param)
             time.sleep(1)

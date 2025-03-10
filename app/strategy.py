@@ -30,8 +30,6 @@ class Bot(threading.Thread):
                     if self.stop_signal:
                         app_logger.info("Received stop signal : stopping")
                         break
-                    if not self.check_state(self.get_platform_state()):
-                        raise self.MisalignmentError("Bot state differs from platform's. Stopping bot")
                     config_update_action=self.strategy.update_config()
                     if config_update_action==2: #If strategy has reset, reset candles
                         del self.candles
@@ -46,14 +44,17 @@ class Bot(threading.Thread):
                         lines_added=self.candles.update_history(self.strategy.indicators)
                     if lines_added>0:
                         try:
+                            self.strategy.update_filled_orders(self.candles.history[0])
+                            if not self.check_state(self.get_platform_state()):
+                                raise self.MisalignmentError("Bot state differs from platform's. Stopping bot")
                             self.strategy.apply_strategy(self.candles,0)
+                        except self.MisalignmentError as exception:
+                            app_logger.error(exception)
+                            raise
                         except BaseException as exception:
                             strategy_logger.exception(exception)
                     time_to_wait=max(self.candles.history[0]['Time']+2*self.strategy.candle_duration-time.time(),0)
                     self.interrupt.wait(timeout=time_to_wait)
-            except self.MisalignmentError as exception:
-                app_logger.error(exception)
-                raise
             except BaseException as exception:
                 app_logger.exception(exception)
         else:
