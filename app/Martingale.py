@@ -29,9 +29,9 @@ class MartingaleStrategy:
         #Set objects
         self.api=Api(self.platform_api)
         self.strategy=Strategy(None,self.initial_capital,self.leverage,start_date=self.start_date,api=self.api,symbol=self.symbol)
-        self.init_order=self.strategy.Order(size=0,price=None,long=True,_type='market',stop=False,name='Entry')
-        self.tp_order=self.strategy.Order(size=0,price=None,long=False,_type='market',stop=False,name='TP')
-        self.sl_order=self.strategy.Order(size=0,price=None,long=False,_type='market',stop=True,name='SL')
+        self.init_order=self.strategy.Order(_size=0,_price=None,_long=True,_type='market',_stop=False,_name='Entry')
+        self.tp_order=self.strategy.Order(_size=0,_price=None,_long=False,_type='market',_stop=False,_name='TP')
+        self.sl_order=self.strategy.Order(_size=0,_price=None,_long=False,_type='market',_stop=True,_name='SL')
         #Initialize variables
         self.stop_loss_price = None
         self.close_qty=0
@@ -41,6 +41,7 @@ class MartingaleStrategy:
     def apply_strategy(self,candles:Candles,current_index=0):
         #self.update_filled_orders(candles.history[current_index])
         self.strategy.last_known_price = candles.history[current_index]['Close']
+        self.strategy.set_fundings(candles.history[current_index]['Time'],candles.history[current_index]['Close'])
         self.strategy.set_runup_drawdown(candles.history[current_index])
         if self.strategy.position is None:
             if self.trade_condition(candles.history[current_index],candles.history[current_index+1]):
@@ -197,21 +198,11 @@ class MartingaleStrategy:
             self.tp_order.size = round(self.strategy.min_qty * int(round((self.strategy.position.qty * self.tp_qty_percent) / self.strategy.min_qty,10)),10) # Recalculate TP qty
 
     def update_filled_orders(self, candle):
-        orders_filled = self.strategy.check_orders(candle)
-        for order in orders_filled:
-            rep=self.api.get_order(order.id,self.symbol,order.stop)
-            trade_logger.info(f"repfilled={rep}")
-            order.time = candle['Time']
-            trade_logger.info(f"Order filled : {order}")
-            #Create execute_order function that takes care of updating object / careful, check_orders didn't delete order from open_orders => do that in that new function
-            if order.stop:
-                self.strategy.close_order(order, True)  # Only log the transaction
-                candle['Trade'] = "SL"
+        orders_filled = self.strategy.check_orders(candle,self.backtest)
+        if len(orders_filled)>0:
+            if 'SL' in orders_filled:
                 self.tp_order.price = 0
                 self.sl_order.price = None
                 self.strategy.liquidation_price = None
-            elif order.price is not None:
-                order.type = 'market'
-                self.strategy.open_order(order, True)
-                candle['Trade'] = 'Filled :' + order.name
+            candle['Trade'] = f"Filled : {orders_filled}"
 

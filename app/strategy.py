@@ -2,6 +2,8 @@ import threading
 import time
 import importlib
 import copy
+from datetime import datetime
+
 from app.models import Candles
 from app.logging import app_logger, strategy_logger
 
@@ -54,6 +56,7 @@ class Bot(threading.Thread):
                         except BaseException as exception:
                             strategy_logger.exception(exception)
                     time_to_wait=max(self.candles.history[0]['Time']+2*self.strategy.candle_duration-time.time(),0)
+                    time_to_wait=min(time_to_wait,self.strategy.api.fetch_next_funding(self.strategy.symbol)) #synchronize for next funding time
                     self.interrupt.wait(timeout=time_to_wait)
             except BaseException as exception:
                 app_logger.exception(exception)
@@ -69,12 +72,13 @@ class Bot(threading.Thread):
             module = importlib.import_module('app.'+strategy_name)
             class_ = getattr(module, strategy_name+'Strategy')
             self.strategy = class_(parameters,backtest)
-            state=self.get_platform_state()
-            if self.check_state(state):
-                app_logger.info('Platform has no current state : starting fresh !')
-            else:
-                app_logger.warning("Platform has current state : updating bot state to match platform's, this may cause errors !")
-                self.strategy.set_state(state)
+            if not backtest:
+                state=self.get_platform_state()
+                if self.check_state(state):
+                    app_logger.info('Platform has no current state : starting fresh !')
+                else:
+                    app_logger.warning("Platform has current state : updating bot state to match platform's, this may cause errors !")
+                    self.strategy.set_state(state)
             return
         except BaseException as exception:
             app_logger.exception(exception)

@@ -303,13 +303,18 @@ class Strategy:
         self.liquidation_price=None
         if self.api is not None:
             try:
-                self.api.set_position_mode(self.symbol,False)
-                self.api.set_margin_mode(self.symbol, False)
-                self.api.set_leverage(self.symbol, self.leverage)
                 self.taker_fee = self.api.exchange.markets[self.symbol]['taker']
                 self.maker_fee = self.api.exchange.markets[self.symbol]['maker']
-                self.min_qty = self.taker_fee = self.api.exchange.markets[self.symbol]['limits']['amount']['min']
-                self.maintenance_margin = self.api.fetch_margin_rate(self.symbol)
+                self.min_qty = self.api.exchange.markets[self.symbol]['limits']['amount']['min']
+                self.precision = self.api.exchange.markets[self.symbol]['precision']['price'] if 1 else 2
+                self.spot=self.api.exchange.markets[self.symbol]['spot']
+                if not self.spot:
+                    self.api.set_position_mode(self.symbol,False)
+                    self.api.set_margin_mode(self.symbol, False)
+                    self.api.set_leverage(self.symbol, self.leverage)
+                    self.maintenance_margin = self.api.fetch_margin_rate(self.symbol)
+                    self.funding_interval= 8 * 3600
+                    self.next_funding = 0
             except BaseException as exception:
                 strategy_logger.exception(exception)
 
@@ -410,19 +415,34 @@ class Strategy:
 
 
     def check_orders(self, candle, backtest=True):
-        orders_filled = []
+        filled_orders=[]
         for index, order in enumerate(self.open_orders):
-            if backtest
+            filled_order = None
+            if backtest:
                 if order.check_order(candle) is not None:
-                    orders_filled.append(self.open_orders[index])
+                    filled_order=self.open_orders[index]
             else:
                 try:
                     upd_order=self.api.get_order(order.id,self.symbol,order.stop)
-                    if upd_order['filled']>0:
-                        order_filled.append(Strategy.Order(upd_order['id'],candle['Time'],upd_order['average'],upd_order['filled'], True if upd_order['side']=='buy' else False,order.type,order.stop,order.name,order.margin))
+                    if upd_order['remaining'] is not None and upd_order['remaining']<order.size:
+                        upd_order['long'] = True if upd_order['side']=='buy' else False
+                        upd_order['size'] = order.size - upd_order['remaining']
+                        upd_order['price'] = upd_order['average']
+                        upd_order['time'] = candle['Time']
+                        upd_order['name']=order.name
+                        filled_order=Strategy.Order(**{f"_{key}":val for key,val in upd_order.items()})
                 except BaseException as exception:
-                    srategy.logger.exception(exception)
-        return orders_filled
+                    strategy_logger.exception(exception)
+            if filled_order is not None:
+                if filled_order.long == self.position.long: #If order increase position
+                    filled_order.type='market' #log as a market order at filled price
+                    self.open_order(filled_order,True)
+                else: #if decreasing position, close open trades in log, according to filled quantity
+                    self.close_order(filled_order,True)
+                order.size-=filled_order.size #remove filled quantity from open order size
+                filled_orders.append(filled_order.name)
+        self.open_orders=[order for order in self.open_orders if order.size>0] #Remove all orders that are totally filled from open orders
+        return filled_orders
 
     def get_realised_profit(self):
         profit=0
@@ -473,6 +493,13 @@ class Strategy:
         if (self.max_drawdown is None and self.get_open_equity(drawdown) - self.max_equity<0) or (self.max_drawdown is not None and self.get_open_equity(drawdown) - self.max_equity<self.max_drawdown):
             self.max_drawdown = self.get_open_equity(drawdown) - self.max_equity
 
+    def set_fundings(self,_time,_price):
+        self.next_funding = self.api.fetch_next_funding(self.symbol,_time-1)+self.funding_interval
+        if _time >= self.next_funding:
+            rate = self.api.fetch_funding_rate(self.symbol, _time)
+            for trade in self.open_trades:
+                trade.update_funding(_time,_price,rate)
+
     def get_runup(self):
         return 100*self.max_runup/self.max_equity
     def get_drawdown(self):
@@ -495,9 +522,12 @@ class Strategy:
             self.close_price = close_price
             self.drawdown_price = None
             self.runup_price = None
+            self.fees = self.set_fees()
+            self.funding=0
             self.margin = margin if margin is not None else self.set_margin()
             self.open_name = open_name
             self.close_name = close_name
+
             self.id=None
 
         def __str__(self):
@@ -543,14 +573,14 @@ class Strategy:
         def get_profit(self,price=None):
             if price is None and self.close_price is not None:
                 if self.long:
-                    return self.close_price*self.qty - self.open_price*self.qty
+                    return self.close_price*self.qty - self.open_price*self.qty - self.fees - self.funding
                 else:
-                    return self.open_price*self.qty - self.close_price*self.qty
+                    return self.open_price*self.qty - self.close_price*self.qty - self.fees - self.funding
             elif price is not None and self.open_price is not None:
                 if self.long:
-                    return price*self.qty - self.open_price*self.qty
+                    return price*self.qty - self.open_price*self.qty - self.fees - self.funding
                 else:
-                    return self.open_price*self.qty - price*self.qty
+                    return self.open_price*self.qty - price*self.qty - self.fees - self.funding
             return None
 
 
@@ -564,10 +594,16 @@ class Strategy:
             # Return qty left to close (positive) or qty left in trade (negative)
             return close_qty_left
 
+        def set_fees(self):
+            self.fees=0
+            if self.qty is not None and self.open_price is not None:
+                self.fees = self.qty * self.open_price * self.strategy.taker_fee
+            return self.fees
+
         def set_margin(self):
             self.margin = None
             if self.qty is not None and self.open_price is not None:
-                self.margin = self.qty * self.open_price / self.strategy.leverage
+                self.margin = self.qty * self.open_price * (1-self.strategy.taker_fee) / self.strategy.leverage
             return self.margin
 
         def get_liquidation_price(self):
@@ -580,17 +616,21 @@ class Strategy:
             if self.long!=trade.long:return False
             return True
 
+        def update_funding(self,_time,_price,_rate):
+            funding = _rate * self.qty * _price
+            self.funding+= funding
+            self.margin -= funding
 
     class Order:
-        def __init__(self, size, price:float=None, long=True, _type:Literal['limit','market']='market',stop=False, name=None,_time=None,_id=None,_margin=None):
+        def __init__(self, _size:float, _price:float=None, _long=True, _type:Literal['limit','market']='market',_stop=False, _name=None,_time=None,_id=None,_margin=None,**kwargs):
             self.id = _id
             self.time = _time
-            self.price= price
-            self.size = size
-            self.long = long
+            self.price= _price
+            self.size = _size
+            self.long = _long
             self.type = _type
-            self.stop = stop
-            self.name = name
+            self.stop = _stop
+            self.name = _name
             self.margin = _margin
 
         def __str__(self):

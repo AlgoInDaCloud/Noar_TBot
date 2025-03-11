@@ -91,6 +91,7 @@ class Api:
                         raw=self.exchange.fetch_open_orders(symbol=_symbol, params=param)
                         api_logger.info(f"raw1={raw}")
                         if not len(raw)>0:
+                            param['stop']=True
                             raw=self.exchange.fetch_closed_orders(symbol=_symbol, params=param)
                             api_logger.info(f"raw2={raw}")
                         if len(raw)>0:
@@ -192,5 +193,20 @@ class Api:
     def fetch_margin_rate(self,_symbol):
         try:
             return self.exchange.fetch_market_leverage_tiers(_symbol)[0]['maintenanceMarginRate']
+        except BaseException as exception:
+            api_logger.exception(exception)
+
+    def fetch_funding_rate(self,_symbol,_time):
+        try:
+            return self.exchange.fetch_funding_rate_history(_symbol,_time,1)[0]['fundingRate']
+        except BaseException as exception:
+            api_logger.exception(exception)
+
+    def fetch_next_funding(self,_symbol,_time=None):
+        try:
+            if _time is None:
+                return self.exchange.fetch_funding_interval(_symbol)['fundingTimestamp']/1000
+            else:
+                return self.exchange.fetch_funding_rate_history(_symbol,_time,1)[0]['timestamp']/1000
         except BaseException as exception:
             api_logger.exception(exception)
