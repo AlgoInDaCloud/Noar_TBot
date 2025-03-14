@@ -66,7 +66,7 @@
                             <td>{{trade.open_name }}</td>
                             <td>{{trade.open_price}}</td>
                             <td>{{trade.qty}}</td>
-                            <td>{{trade.fees + trade.funding | round(2)}}</td>
+                            <td>{{(trade.fees+trade.funding)|round(4)}}</td>
                             <td>{{trade.margin | round(2)}}</td>
                             <td>{{trade.get_liquidation_price()|round(2)}}</td>
                             <td>{% if trade.get_runup() is not none %}{{(trade.get_runup()*100)|round(2)}}%{% else %}None{%endif%}</td>
@@ -101,13 +101,14 @@
                     <caption>Closed trades :</caption>
                     <thead class="table-primary">
                         <tr>
-                            <th class="col-2">Time</th>
+                            <th class="col-1">Time</th>
                             <th class="col-1">Name</th>
                             <th class="col-1">Open</th>
                             <th class="col-1">Qty</th>
                             <th class="col-1">Name</th>
                             <th class="col-1">Close</th>
-                            <th class="col-2">Time</th>
+                            <th class="col-1">Time</th>
+			    <th class="col-1">Fees</th>
                             <th class="col-1">Runup</th>
                             <th class="col-1">Drawdown</th>
                             <th class="col-1">P&L</th>
@@ -123,6 +124,7 @@
                             <td>{{trade.close_name}}</td>
                             <td>{{trade.close_price}}</td>
                             <td>{{trade.close_time | format_timestamp }}</td>
+			    <td>{{(trade.fees+trade.funding)|round(4)}}</td>
                             <td>{% if trade.get_runup() is not none %}{{(trade.get_runup()*100)|round(2)}}%{% else %}None{%endif%}</td>
                             <td>{% if trade.get_drawdown() is not none %}{{(trade.get_drawdown()*100)|round(2)}}%{% else %}None{%endif%}</td>
                             <td class="fw-bold {% if trade.get_profit()>0 %}text-success{% else %}text-danger{% endif %}">{{trade.get_profit()|round(2)}}$ ({{(trade.get_pnl()*100)|round(2)}}%)</td>

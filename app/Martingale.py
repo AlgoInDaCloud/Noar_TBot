@@ -108,12 +108,12 @@ class MartingaleStrategy:
         for i in range(self.martingale_number):
             mart_price=round(temp_strategy.position.get_liquidation_price() * (1 + self.security),10)
             order=self.strategy.Order(
-                    size=round(_amount_per_order / mart_price,10),
-                    price=mart_price,
-                    long=self.init_order.long,
+                    _size=round(_amount_per_order / mart_price,10),
+                    _price=mart_price,
+                    _long=self.init_order.long,
                     _type='limit',
-                    stop=False,
-                    name="Mart" + str(i+1) + "/" + str(self.martingale_number)
+                    _stop=False,
+                    _name="Mart" + str(i+1) + "/" + str(self.martingale_number)
                  )          
             order=self.strategy.open_order(order,self.backtest)
             trade=copy.deepcopy(order)

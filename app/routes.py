@@ -80,7 +80,8 @@ def bot_function(strategy_name=None,action=None):
         bot_thread.set_strategy(strategy_name.capitalize(),strat_param)
         bot_thread.name = strategy_name.capitalize()+'-bot'
         backtest_strategy,candles = bot_thread.backtest()
-
+    
+    routes_logger.info(f"{threading.enumerate()}")
     for thread in threading.enumerate():
         if thread.name == strategy_name.capitalize()+'-bot':
             backtest_strategy=thread.strategy.strategy

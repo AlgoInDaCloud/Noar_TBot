@@ -89,11 +89,9 @@ class Api:
                         param['orderId']=_id
                         param['planType']='profit_loss'
                         raw=self.exchange.fetch_open_orders(symbol=_symbol, params=param)
-                        api_logger.info(f"raw1={raw}")
                         if not len(raw)>0:
                             param['stop']=True
                             raw=self.exchange.fetch_closed_orders(symbol=_symbol, params=param)
-                            api_logger.info(f"raw2={raw}")
                         if len(raw)>0:
                             response=raw[0]
                             response['price'] = response.pop('stopPrice')
@@ -130,7 +128,6 @@ class Api:
                         param['oneWayMode'] = True
                     if _isolated:
                         param['marginMode'] = 'isolated'
-            trade_logger.info(f"{param}, {_price}")
             response=self.exchange.edit_order(_id, _symbol, _type, _side, _size, price=_price, params=param)
             time.sleep(1)
             return self.get_order(response['id'], _symbol,_stop)

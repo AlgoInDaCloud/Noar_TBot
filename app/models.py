@@ -357,7 +357,6 @@ class Strategy:
     def edit_order(self,order:'Strategy.Order',backtest=False):
         error=False
         order.size = round(self.min_qty * int(round(order.size/self.min_qty,10)),10) #truncate to min-qty
-        strategy_logger.info(f"{order}")
         if not backtest:
             try:
                 response=self.api.edit_order(order.id,self.symbol,'buy' if order.long else 'sell',order.size,order.price,order.type,order.stop)
