@@ -29,7 +29,7 @@ def load_user(_id):
 
 class Candles:
     def __init__(self, api:Api, symbol, timeframe,max_history_store:int=100):
-        self.csv_file_path = "app/datas/"+symbol.replace("/", "").replace(":","_") + "_" + timeframe  #history_file
+        self.csv_file_path = "app/datas/candles/"+symbol.replace("/", "").replace(":","_") + "_" + timeframe  #history_file
         self.api = api
         self.symbol = symbol
         self.timeframe = timeframe

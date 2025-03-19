@@ -1,11 +1,15 @@
 import ast
 import os
 import csv
+import pickle
 import re
+import shutil
 from configparser import ConfigParser
 from datetime import datetime
 from tempfile import NamedTemporaryFile
 from typing import Literal
+import dill
+
 
 class CsvRW:
     def __init__(self,csv_file_path:str):
@@ -135,6 +139,13 @@ def read_config_file(_config_file):
         for (key, val) in _params.items():
             parameters[section][key]=val
     return parameters
+def write_config_file(_config_file,_parameters:dict):
+    config = ConfigParser()
+    for key,val in _parameters.items():
+        config[key] = val
+    with open(_config_file, 'w') as configfile:  # save
+        config.write(configfile)
+    return True
 
 def correct_types_from_strings(list_of_dict):
     date_pattern=r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}'
@@ -161,3 +172,32 @@ def config_update(_config_file,_last_modified):
         return last_modified,parameters
     else:
         return last_modified,None
+
+def save_state(_state_file,_object):
+    with open(_state_file, 'wb') as file:
+        dill.dump(_object, file)
+    return True
+
+def restore_state(_state_file):
+    create_if_not_exists(_state_file)
+    with open(_state_file, 'rb') as file:
+        try:
+            _object  = dill.load(file)
+            return _object
+        except EOFError as err:
+            print(err)
+            pass
+
+def list_file_names(_directory):
+    files = [file.split('.')[0] for file in os.listdir(_directory)]
+    return files
+def create_if_not_exists(_destination_file,_source_file=None):
+    if not os.path.exists(_destination_file):
+        dir_path, file_name = os.path.split(_destination_file)
+        os.makedirs(dir_path,exist_ok=True) #Create path if not exist
+        if _source_file is not None:
+            shutil.copyfile(_source_file,_destination_file)
+        else:
+            with open(_destination_file,'w') as file:
+                pass
+

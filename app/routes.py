@@ -1,7 +1,9 @@
+import importlib
 import threading
 from configparser import ConfigParser
+from operator import attrgetter
 
-from app.files_rw import read_config_file
+from app.files_rw import read_config_file, write_config_file, list_file_names, create_if_not_exists
 from app.strategy import Bot
 from app.threads import get_bots_threads, get_thread_by_name
 from datetime import datetime
@@ -13,6 +15,9 @@ from app.forms import LoginForm
 from app.models import User
 from app.logging import routes_logger
 from time import sleep
+
+from config import BOTS_STATES
+
 
 #Logging function
 def login_function():
@@ -31,20 +36,30 @@ def login_function():
         return redirect(next_page)
     return render_template('login.html', title='Sign In', form=form)
 
+strategies={}
+for strat in list_file_names('app/strategies'):
+    running=[int(bot_id) for bot_id in (BOTS_STATES['RUNNING'][strat.lower()] if strat.lower() in BOTS_STATES['RUNNING'] else []) ]
+    history=[int(bot_id) for bot_id in (BOTS_STATES['HISTORY'][strat.lower()] if strat.lower() in BOTS_STATES['HISTORY'] else []) ]
+    strategies[strat]={'running':running,
+           'history':history,
+           'new_id':1+max(running+history,default=0)}
 #Bot function
-def bot_function(strategy_name=None,action=None):
-    if strategy_name=="asset_manager":
-        return asset_manager(strategy_name,action)
+def bot_function(strategy_name=None,strategy_id=None,action=None):
     backtest_strategy = None
     candles = None
     #Get strategy parameters
-    config_file='app/params/'+strategy_name+'.ini'
+    config_file=f"app/datas/strategies/{strategy_name}/{strategy_id}/parameters.ini"
+    create_if_not_exists(config_file,f"app/params/{strategy_name}.ini")
     strat_param = read_config_file(config_file)['PARAMETERS']
     #Get available APIs
     available_apis=read_config_file('app/params/exchanges.ini').keys()
+    #Get current thread if running
+    current_thread=get_thread_by_name(strategy_name + '-bot' + strategy_id)
+    #Get other running threads
+    threads=get_bots_threads()
 
-    #module = importlib.import_module('app.' + strategy_name.capitalize())
-    _class = getattr(forms, strategy_name.capitalize()+'Parameter')
+    module = importlib.import_module('app.strategies.' + strategy_name.capitalize())
+    _class = getattr(module, strategy_name.capitalize()+'Parameter')
     form = _class(**strat_param)
     form.API.choices = [(api, api) for api in available_apis]
 
@@ -55,24 +70,21 @@ def bot_function(strategy_name=None,action=None):
             for key in remove_keys:parameters.pop(key,None)
             config = ConfigParser()
             config['PARAMETERS']=parameters
-            with open(config_file, 'w') as configfile:  # save
-                config.write(configfile)
-            for thread in threading.enumerate():
-                if thread.name == strategy_name.capitalize()+'-bot':
-                    thread.interrupt.set()
-                    sleep(1)
+            write_config_file(config_file,{'PARAMETERS':parameters})
+            if current_thread:
+                current_thread.interrupt.set()
+                sleep(1)
         elif form.start.data:
-            bot_thread = Bot()
+            #new_id = 1 if strategy_name not in threads['RUNNING']+threads['HISTORY'] else max((threads['RUNNING']+threads['HISTORY'])[strategy_name])+1
+            bot_thread = Bot(name=strategy_name+'-bot'+str(strategy_id))
             bot_thread.set_strategy(strategy_name.capitalize(),strat_param,False)
-            bot_thread.name = strategy_name.capitalize()+'-bot'
             bot_thread.start()
         elif form.stop.data:
-            for thread in threading.enumerate():
-                if thread.name == strategy_name.capitalize()+'-bot':
-                    thread.stop()
-                    thread.interrupt.set()
-                    sleep(1)
-        return redirect('/' + strategy_name)
+            if current_thread:
+                current_thread.stop()
+                current_thread.interrupt.set()
+                sleep(1)
+        return redirect('/' + strategy_name + '/' + strategy_id)
     form.API.data = strat_param['api']
 
     if action=="backtest":
@@ -81,52 +93,36 @@ def bot_function(strategy_name=None,action=None):
         bot_thread.name = strategy_name.capitalize()+'-bot'
         backtest_strategy,candles = bot_thread.backtest()
     
-    routes_logger.info(f"{threading.enumerate()}")
-    for thread in threading.enumerate():
-        if thread.name == strategy_name.capitalize()+'-bot':
-            backtest_strategy=thread.strategy.strategy
-            candles=thread.candles
+    if current_thread:
+        backtest_strategy=current_thread.strategy.strategy
+        candles=current_thread.candles
 
     if candles is not None and len(candles.history)>50:
         page = request.args.get('page')
         if page is not None:
             page=int(page)
             #candles.history=candles.history[50*page:49*(page+1)]
+
     return render_template('strategy.html', title=strategy_name.capitalize()+'-bot', form=form,
-                                   thread=get_thread_by_name(strategy_name.capitalize()+'-bot'), backtest_strategy=backtest_strategy,
-                                   candles=candles,strategy_name=strategy_name,action=action)
+                                   thread=current_thread, threads=sorted(threads,key=attrgetter('name')), backtest_strategy=backtest_strategy,
+                                   candles=candles,strategy_name=strategy_name,action=action,strategies=strategies)
 
 @app.route('/')
 @app.route('/index')
 @login_required
 def index():
-    import requests
-    response=""
     try:
-        retry=0
-        while retry<3:
-            try:
-                response=requests.get('https://api.bitget.com/api/v2/mix/order/place-order')
-                response.raise_for_status()
-                print(response.status_code)
-                break
-            except requests.HTTPError as e:
-                retry+=1
-                print(e)
-                print("sleep 5")
-                sleep(5)
-        return render_template('index.html', title='Home', threads=get_bots_threads())
+        return render_template('index.html', title='Home', threads=get_bots_threads(), strategies=strategies)
     except BaseException as exception:
-        print(response.status_code)
         routes_logger.exception(exception)
         return render_template('error.html',title="Error during execution")
 
-@app.route('/<strategy_name>/', methods=['GET', 'POST'])
-@app.route('/<strategy_name>/<action>/', methods=['GET', 'POST'])
+@app.route('/<strategy_name>/<strategy_id>', methods=['GET', 'POST'])
+@app.route('/<strategy_name>/<strategy_id>/<action>/', methods=['GET', 'POST'])
 @login_required
-def bot(strategy_name=None,action=None):
+def bot(strategy_name=None,strategy_id=None,action=None):
     try:
-        return bot_function(strategy_name,action)
+        return bot_function(strategy_name,strategy_id,action)
     except BaseException as exception:
         routes_logger.exception(exception)
         return render_template('error.html',title="Error during execution")

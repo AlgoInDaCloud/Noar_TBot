@@ -1,11 +1,14 @@
+import re
 import threading
 import time
 import importlib
 import copy
-from datetime import datetime
 
+from app import app
+from app.files_rw import save_state, restore_state, read_config_file, write_config_file
 from app.models import Candles
 from app.logging import app_logger, strategy_logger
+from config import BOTS_STATES
 
 
 class Bot(threading.Thread):
@@ -20,12 +23,18 @@ class Bot(threading.Thread):
         self.interrupt=threading.Event()
         self.strategy=None
         self.candles=None
-        self.name=""
+        #self.name=keywords['name'] if 'name' in keywords else ""
+        res = re.search(r"(\w+)-bot(\d+)", self.name)
+        self.strategy_name = res.group(1)
+        self.strategy_id = res.group(2)
+        self.state_file=f"app/datas/strategies/{self.strategy_name}/{self.strategy_id}/state"
+
 
     def run(self):
         app_logger.info("Received start signal : starting")
         if self.strategy is not None:
             try:
+                self.register()
                 self.candles = Candles(self.strategy.api, self.strategy.symbol, self.strategy.timeframe, 100)
                 self.candles.get_candles_history(self.strategy.min_bars_back,self.strategy.indicators)
                 while True:
@@ -50,6 +59,7 @@ class Bot(threading.Thread):
                             if not self.check_state(self.get_platform_state()):
                                 raise self.MisalignmentError("Bot state differs from platform's. Stopping bot")
                             self.strategy.apply_strategy(self.candles,0)
+                            self.save_state()
                         except self.MisalignmentError as exception:
                             app_logger.error(exception)
                             raise
@@ -64,12 +74,12 @@ class Bot(threading.Thread):
             app_logger.info("No strategy set : stopping")
 
     def stop(self):
+        self.unregister()
         self.stop_signal=True
-
 
     def set_strategy(self,strategy_name,parameters,backtest=True):
         try:
-            module = importlib.import_module('app.'+strategy_name)
+            module = importlib.import_module('app.strategies.'+strategy_name)
             class_ = getattr(module, strategy_name+'Strategy')
             self.strategy = class_(parameters,backtest)
             if not backtest:
@@ -165,7 +175,42 @@ class Bot(threading.Thread):
                     return False
         return True
 
+    def save_state(self):
+        save_state(self.state_file,self)
 
+    def register(self):
+        if self.strategy.name not in BOTS_STATES['RUNNING']:
+            BOTS_STATES['RUNNING'][self.strategy_name]=[self.strategy_id]
+        elif self.strategy_id not in BOTS_STATES['RUNNING'][self.strategy_name]:
+            BOTS_STATES['RUNNING'][self.strategy_name].append(self.strategy_id)
+        write_config_file('app/params/bots.ini',BOTS_STATES)
+    def unregister(self):
+        if self.strategy.name not in BOTS_STATES['HISTORY']:
+            BOTS_STATES['HISTORY'][self.strategy_name]=[self.strategy_id]
+        BOTS_STATES['RUNNING'][self.strategy_name].remove(self.strategy_id)
+        write_config_file('app/params/bots.ini', BOTS_STATES)
 
     class MisalignmentError(Exception):
         pass
+
+    def __getstate__(self):
+        return {
+            'parameter_file':self.parameter_file,
+            'run_since':self.run_since,
+            'strategy': self.strategy,
+            'candles':self.candles,
+            'name':self.name,
+            'strategy_name':self.strategy_name,
+            'strategy_id':self.strategy_id,
+            'state_file':self.state_file
+        }
+    def __setstate__(self, state):
+        self.__init__(name=state['name'])
+        self.parameter_file=state['parameter_file']
+        self.run_since=state['run_since']
+        self.strategy=state['strategy']
+        self.candles=state['candles']
+        self.name=state['name']
+        self.strategy_name=state['strategy_name']
+        self.strategy_id=state['strategy_id']
+        self.state_file=state['state_file']
