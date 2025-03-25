@@ -88,9 +88,8 @@ def bot_function(strategy_name=None,strategy_id=None,action=None):
     form.API.data = strat_param['api']
 
     if action=="backtest":
-        bot_thread = Bot()
+        bot_thread = Bot(name=strategy_name+'-bot'+str(strategy_id))
         bot_thread.set_strategy(strategy_name.capitalize(),strat_param)
-        bot_thread.name = strategy_name.capitalize()+'-bot'
         backtest_strategy,candles = bot_thread.backtest()
     
     if current_thread:

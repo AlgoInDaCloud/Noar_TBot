@@ -62,6 +62,7 @@ class Bot(threading.Thread):
                             self.save_state()
                         except self.MisalignmentError as exception:
                             app_logger.error(exception)
+                            self.stop()
                             raise
                         except BaseException as exception:
                             strategy_logger.exception(exception)
@@ -112,6 +113,7 @@ class Bot(threading.Thread):
         platform_state=copy.deepcopy(self.strategy)
         platform_state.strategy.open_trades=[]
         platform_state.strategy.open_orders=[]
+        platform_state.strategy.position=None
         current_position = platform_state.api.get_position(platform_state.symbol)
         open_orders = platform_state.api.get_open_orders(platform_state.symbol)
         # self.strategy.capital = current_position.pop('capital')
@@ -124,6 +126,7 @@ class Bot(threading.Thread):
         return platform_state
 
     def check_state(self,state):
+        strategy_logger.info(f"{state.strategy.__dict__}")
         if self.strategy.strategy.position is None:
             if state.strategy.position is not None:
                 strategy_logger.warning('Currently holding position on platform')

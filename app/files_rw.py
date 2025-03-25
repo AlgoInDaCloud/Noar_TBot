@@ -189,7 +189,7 @@ def restore_state(_state_file):
             pass
 
 def list_file_names(_directory):
-    files = [file.split('.')[0] for file in os.listdir(_directory)]
+    files = [file.split('.')[0] for file in os.listdir(_directory) if os.path.isfile(os.path.join(_directory,file))]
     return files
 def create_if_not_exists(_destination_file,_source_file=None):
     if not os.path.exists(_destination_file):

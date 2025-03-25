@@ -424,9 +424,10 @@ class Strategy:
                 try:
                     upd_order=self.api.get_order(order.id,self.symbol,order.stop)
                     if upd_order['remaining'] is not None and upd_order['remaining']<order.size:
+                        strategy_logger.info(f"upd={upd_order}")
                         upd_order['long'] = True if upd_order['side']=='buy' else False
                         upd_order['size'] = order.size - upd_order['remaining']
-                        upd_order['price'] = upd_order['average']
+                        upd_order['price'] = upd_order['average'] if upd_order['type']=='market' else upd_order['price']
                         upd_order['time'] = candle['Time']
                         upd_order['name']=order.name
                         filled_order=Strategy.Order(**{f"_{key}":val for key,val in upd_order.items()})

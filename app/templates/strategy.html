@@ -13,10 +13,10 @@
         <div class="col-10">
             <ul class="nav nav-tabs">
               <li class="nav-item">
-                <a class="nav-link {% if action is none %}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{strategy_name}}">Real Time</a>
+		      <a class="nav-link {% if action is none %}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}">Real Time</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{strategy_name}}/backtest">Backtest</a>
+		      <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}/backtest">Backtest</a>
               </li>
             </ul>
             <div class="p-2 bg-light border-start border-end border-bottom">

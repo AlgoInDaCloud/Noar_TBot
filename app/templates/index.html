@@ -6,7 +6,7 @@
 {% block content %}
     {% for bot in threads %}
     <div class="alert {% if bot %}alert-success{% else%}alert-danger{% endif %}">
-        <h6>{% if bot %}<a href="/{{bot.name|replace('-bot','')|lower}}">{{bot.name}}</a> running since {{bot.run_since | format_timestamp }}{% else%}Bot not running{% endif %}</h6>
+	    <h6>{% if bot %}<a href="/{{bot.strategy_name}}/{{bot.strategy_id}}">{{bot.name}}</a> running since {{bot.run_since | format_timestamp }}{% else%}Bot not running{% endif %}</h6>
         {% if  bot.strategy.strategy is not none %}
         <div class="row">
             <div class="col">
