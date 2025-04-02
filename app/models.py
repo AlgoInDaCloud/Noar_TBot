@@ -420,6 +420,8 @@ class Strategy:
             if backtest:
                 if order.check_order(candle) is not None:
                     filled_order=self.open_orders[index]
+                    filled_order.time=candle['Time']
+                    filled_order.name=order.name
             else:
                 try:
                     upd_order=self.api.get_order(order.id,self.symbol,order.stop)
@@ -494,11 +496,13 @@ class Strategy:
             self.max_drawdown = self.get_open_equity(drawdown) - self.max_equity
 
     def set_fundings(self,_time,_price):
-        self.next_funding = self.api.fetch_next_funding(self.symbol,_time-1)+self.funding_interval
+        if self.next_funding==0:
+            self.next_funding = self.api.fetch_next_funding(self.symbol,_time-1)+self.funding_interval
         if _time >= self.next_funding:
             rate = self.api.fetch_funding_rate(self.symbol, _time)
             for trade in self.open_trades:
                 trade.update_funding(_time,_price,rate)
+            self.next_funding = self.api.fetch_next_funding(self.symbol, _time - 1) + self.funding_interval
 
     def get_runup(self):
         return 100*self.max_runup/self.max_equity

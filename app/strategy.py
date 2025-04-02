@@ -1,3 +1,4 @@
+import datetime
 import re
 import threading
 import time
@@ -102,6 +103,7 @@ class Bot(threading.Thread):
                 candles.get_backtest_candle()
                 for index,candle in enumerate(candles.backtest_candles):
                     if len(candles.history)>1 and candle['Time'] >= self.strategy.start_date:
+                        self.strategy.update_filled_orders(candle)
                         self.strategy.apply_strategy(candles,0)
                 return self.strategy.strategy, candles
 

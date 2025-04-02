@@ -90,7 +90,7 @@ class MartingaleStrategy:
                 if self.sl_order.price == 0 \
                     and candles.history[current_index]['PivotsHL']['low'] is not None \
                     and candles.history[current_index]['PivotsHL']['low'] > self.strategy.position.open_price:  # If pivot in profit, activate SL and deactivate the rest
-                    self.strategy.cancel_orders()
+                    self.strategy.cancel_orders(backtest=self.backtest)
                     self.sl_order.price=candles.history[current_index]['PivotsHL']['low']
                     self.sl_order.size=self.strategy.position.qty
                     self.sl_order.long=not self.strategy.position.long
@@ -102,6 +102,7 @@ class MartingaleStrategy:
                     self.tp_order.long=not self.strategy.position.long
                     self.tp_order.time=int(candles.history[current_index]['Time'])
                     self.strategy.close_order(self.tp_order,self.backtest)
+                    print(datetime.fromtimestamp(candles.history[current_index]['Time']),' TP', self.tp_order.price)
                     candles.history[current_index]['Trade'] = "TP"
                     trade=self.strategy.closed_trades[-1]
                     trade_logger.info(f"TP : {datetime.fromtimestamp(int(candles.history[current_index]['Time']))} Sell {trade.qty} @{trade.close_price} /{self.close_qty},{candles.history[current_index]['Close']}")

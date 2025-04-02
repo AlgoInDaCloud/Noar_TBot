@@ -1,3 +1,5 @@
+import os
+
 from app.files_rw import read_config_file
 class Config:
     vars=read_config_file('.env_var.ini')['ENV_VARS']

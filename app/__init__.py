@@ -20,6 +20,5 @@ for strategy_name,ids in BOTS_STATES['RUNNING'].items():
         bot_thread = restore_state(f"app/datas/strategies/{strategy_name}/{id}/state")
         if bot_thread:
             bot_thread.start()
-        print('thread=',bot_thread)
 
 from app import routes
