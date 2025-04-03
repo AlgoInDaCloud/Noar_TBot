@@ -175,8 +175,7 @@ class Api:
         try:
             if self.exchange.has['fetchOpenOrders']:
                 response=self.exchange.fetch_open_orders(symbol=_symbol)
-                pl='profit_loss' if self.retries==3 else 'poutou'
-                response=response+ self.exchange.fetch_open_orders(symbol=_symbol, params={'planType':pl})
+                response=response+ self.exchange.fetch_open_orders(symbol=_symbol, params={'planType':'profit_loss'})
                 orders=[]
                 for index, order in enumerate(response):
                     match self.exchange_name.lower():

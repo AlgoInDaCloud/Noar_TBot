@@ -21,7 +21,7 @@
             </ul>
             <div class="p-2 bg-light border-start border-end border-bottom">
                 <div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
-                    <h6>{% if thread %}Bot running since {{thread.run_since | format_timestamp }}{% else%}Bot not running{% endif %}</h6>
+		    <h6>{% if thread %}Bot running since {{thread.run_since | format_timestamp }} - Last price : {{backtest_strategy.last_known_price}}{% else%}Bot not running{% endif %}</h6>
                     {% if backtest_strategy is not none %}
                     <div class="row">
                         <div class="col">
@@ -39,6 +39,16 @@
                             </ul>
                         </div>
                     </div>
+		    <h6 class="mt-3">Open position :</h6>
+		    <div class="row">
+			<div class="col">
+			    <ul class="list-group">
+			        <li class="list-group-item fw-bold">Open price : {{backtest_strategy.position.open_price|round(2)}}$</li>
+				<li class="list-group-item fw-bold">Qty : {{backtest_strategy.position.qty}}</li>
+				<li class="list-group-item fw-bold">Margin : {{backtest_strategy.position.margin|round(2)}}$</li>
+			    </ul>
+			</div>
+		    </div>
                     {% endif %}
 
                 </div>
