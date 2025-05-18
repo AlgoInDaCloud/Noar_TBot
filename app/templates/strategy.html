@@ -39,6 +39,7 @@
                             </ul>
                         </div>
                     </div>
+		    	        {% if backtest_strategy.position is not none and backtest_strategy.position.open_price is not none %}
 		    <h6 class="mt-3">Open position :</h6>
 		    <div class="row">
 			<div class="col">
@@ -49,6 +50,7 @@
 			    </ul>
 			</div>
 		    </div>
+		    	        {% endif %}
                     {% endif %}
 
                 </div>
