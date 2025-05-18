@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid vh-100">
+    <div class="row h-100">
+        <div class="p-3 col-2 bg-dark text-white">
+            <h1>Parameters</h1>
+            <hr>
+            {% from 'bootstrap4/form.html' import render_form %}
+            {{ render_form(form,button_map={'submit': 'primary', 'start': 'success', 'stop': 'danger'}) }}
+        </div>
+        <div class="col-10">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if action is none %}active bg-light{%endif%}"{% if action is none %} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}">Real Time</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}/backtest">Backtest</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if action=='optimize'%}active bg-light{%endif%}"{% if action=='optimize'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/optimize">Optimize</a>
+                </li>
+            </ul>
+            <div class="p-2 bg-light border-start border-end border-bottom">
+                <div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
+		            <h6>{% if thread %}Optimizer running since {{thread.run_since | format_timestamp }} {% else%}Optimizer not running{% endif %}</h6>
+                </div>
+                {% if backtests|length > 0 %}
+                <table class="table table-striped table-hover caption-top">
+                    <caption>Backtest runned :</caption>
+                    <thead class="table-primary">
+                        <tr>
+                            {% for key in backtests[0].keys() %}
+                            <th class="col-1">{{key}}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for backtest in backtests %}
+                        <tr>
+                            {% for value in backtest.values() %}
+                            <td>{{value}}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@ from flask_wtf import FlaskForm
 from wtforms.fields.choices import SelectField
 from wtforms.fields.datetime import DateTimeLocalField
 from wtforms.fields.numeric import IntegerField, FloatField
-from wtforms.validators import DataRequired
+from wtforms.validators import DataRequired, InputRequired
 from wtforms import SubmitField
 class MartingaleParameter(FlaskForm):
     API = SelectField('API',choices=[('bitget', 'Bitget')],validators=[DataRequired()])
@@ -26,6 +26,33 @@ class MartingaleParameter(FlaskForm):
     rsi_length=IntegerField('RSI length',[DataRequired()],default=14)
     rsi_ob = IntegerField('RSI overbought', [DataRequired()], default=70)
     rsi_os = IntegerField('RSI oversold', [DataRequired()], default=30)
+    submit = SubmitField('Save')
+    start = SubmitField('Start')
+    stop = SubmitField('Stop')
+
+class MartingaleOptimizerParameter(FlaskForm):
+    API = SelectField('API',choices=[('bitget', 'Bitget')],validators=[DataRequired()])
+    symbol=SelectField("Symbol", choices=[('BTC/USDT:USDT','BTCUSDT Futures')],validators=[DataRequired()])
+    timeframe=SelectField('Timeframe', choices=[('1m','1m'),('5m','5m'),('15m','15m'),('30m','30m'),('1h','1h'),('4h','4h'),('1d','1d')],validators=[DataRequired()])
+    martingale_number_min=IntegerField('Min Martingale number',[DataRequired()])
+    martingale_number_max = IntegerField('Max Martingale number', [DataRequired()])
+    leverage_min=IntegerField('Leverage min',[DataRequired()])
+    leverage_max = IntegerField('Leverage max', [DataRequired()])
+    pivot_width_min=IntegerField('Pivot width min',[DataRequired()])
+    pivot_width_max = IntegerField('Pivot width max', [DataRequired()])
+    tp_qty_percent_min=IntegerField('TP % of trade min',[DataRequired()])
+    tp_qty_percent_max = IntegerField('TP % of trade max', [DataRequired()])
+    profit_sl_activation_min=FloatField('%Profit for SL activation min',[InputRequired()])
+    profit_sl_activation_max = FloatField('%Profit for SL activation max', [DataRequired()])
+    dist_btw_tp_min=FloatField('%distance between TP min',[DataRequired()])
+    dist_btw_tp_max = FloatField('%distance between TP max', [DataRequired()])
+    initial_capital=IntegerField('Initial capital',[DataRequired()])
+    start_date=DateTimeLocalField('Start date',validators=[DataRequired()])
+    rsi_length_min=IntegerField('RSI length min',[DataRequired()],default=14)
+    rsi_length_max = IntegerField('RSI length max', [DataRequired()], default=14)
+    rsi_ob = IntegerField('RSI overbought', [DataRequired()], default=70)
+    rsi_os_min = IntegerField('RSI oversold min', [DataRequired()], default=30)
+    rsi_os_max = IntegerField('RSI oversold max', [DataRequired()], default=30)
     submit = SubmitField('Save')
     start = SubmitField('Start')
     stop = SubmitField('Stop')

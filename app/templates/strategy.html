@@ -12,16 +12,16 @@
         </div>
         <div class="col-10">
             <ul class="nav nav-tabs">
-              <li class="nav-item">
-		      <a class="nav-link {% if action is none %}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}">Real Time</a>
-              </li>
-              <li class="nav-item">
-		      <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}/backtest">Backtest</a>
-              </li>
+                <li class="nav-item">
+		            <a class="nav-link {% if action is none %}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}">Real Time</a>
+                </li>
+                <li class="nav-item">
+		            <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}/backtest">Backtest</a>
+                </li>
             </ul>
             <div class="p-2 bg-light border-start border-end border-bottom">
                 <div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">
-		    <h6>{% if thread %}Bot running since {{thread.run_since | format_timestamp }} - Last price : {{backtest_strategy.last_known_price}}{% else%}Bot not running{% endif %}</h6>
+		            <h6>{% if thread %}Bot running since {{thread.run_since | format_timestamp }} - Last price : {{backtest_strategy.last_known_price}}{% else%}Bot not running{% endif %}</h6>
                     {% if backtest_strategy is not none %}
                     <div class="row">
                         <div class="col">

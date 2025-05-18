@@ -1,10 +1,11 @@
 import importlib
+import os.path
 import threading
 from configparser import ConfigParser
 from operator import attrgetter
 
-from app.files_rw import read_config_file, write_config_file, list_file_names, create_if_not_exists
-from app.strategy import Bot
+from app.files_rw import read_config_file, write_config_file, list_file_names, create_if_not_exists,CsvRW
+from app.strategy import Bot, Optimizer
 from app.threads import get_bots_threads, get_thread_by_name
 from datetime import datetime
 from flask import render_template, flash, redirect, url_for, request
@@ -106,6 +107,68 @@ def bot_function(strategy_name=None,strategy_id=None,action=None):
                                    thread=current_thread, threads=sorted(threads,key=attrgetter('name')), backtest_strategy=backtest_strategy,
                                    candles=candles,strategy_name=strategy_name,action=action,strategies=strategies)
 
+#Optimize function
+def optimize_function(strategy_name=None):
+    # Get optimizer parameters
+    config_file = f"app/datas/strategies/{strategy_name}/optimizer/parameters.ini"
+    create_if_not_exists(config_file,f"app/params/{strategy_name}-optimizer.ini")
+    strat_param = read_config_file(config_file)['PARAMETERS']
+    # Get available APIs
+    available_apis = read_config_file('app/params/exchanges.ini').keys()
+    # Get current thread if running
+    current_thread = get_thread_by_name(strategy_name + '-optimizer')
+    # Get other running threads
+    threads = get_bots_threads()
+
+    #Log file path
+    log_file='app/datas/strategies/martingale/optimizer/'+strat_param['symbol']+'_'+strat_param['timeframe']+'_'+strat_param['start_date'].strftime('%Y-%m-%d %H:%M:%S')+'.log'
+
+
+    module = importlib.import_module('app.strategies.' + strategy_name.capitalize())
+    _class = getattr(module, strategy_name.capitalize() + 'OptimizerParameter')
+    form = _class(**strat_param)
+    form.API.choices = [(api, api) for api in available_apis]
+
+    if form.validate_on_submit():
+        if form.submit.data:
+            parameters=form.data
+            remove_keys=['submit','start','stop','csrf_token']
+            for key in remove_keys:parameters.pop(key,None)
+            config = ConfigParser()
+            config['PARAMETERS']=parameters
+            write_config_file(config_file,{'PARAMETERS':parameters})
+            if current_thread:
+                current_thread.interrupt.set()
+                sleep(1)
+        elif form.start.data:
+            #new_id = 1 if strategy_name not in threads['RUNNING']+threads['HISTORY'] else max((threads['RUNNING']+threads['HISTORY'])[strategy_name])+1
+            bot_thread = Optimizer(name=strategy_name+'-optimizer',parameters=strat_param)
+            create_if_not_exists(log_file)
+            bot_thread.start()
+        elif form.stop.data:
+            if current_thread:
+                current_thread.stop()
+                current_thread.interrupt.set()
+                sleep(1)
+        return redirect('/' + strategy_name + '/optimize')
+    form.API.data = strat_param['api']
+
+    backtests=list(dict())
+    if current_thread:
+        backtests=current_thread.backtests
+        backtests.sort(key=lambda k: k['pnl'], reverse=True)
+    elif os.path.exists(log_file):
+        reader = CsvRW(log_file)
+        reader.read_normal()
+        for csv_line in reader.readline:
+            backtests.append(csv_line)
+        backtests.sort(key=lambda k:k['pnl'],reverse=True)
+
+    return render_template('optimizer.html',title=strategy_name.capitalize()+'-optimizer', form=form,
+                                   thread=current_thread, threads=sorted(threads,key=attrgetter('name')), backtests=backtests,
+                                   strategy_name=strategy_name,action='optimize',strategies=strategies)
+
+
 @app.route('/')
 @app.route('/index')
 @login_required
@@ -121,7 +184,10 @@ def index():
 @login_required
 def bot(strategy_name=None,strategy_id=None,action=None):
     try:
-        return bot_function(strategy_name,strategy_id,action)
+        if strategy_id=='optimize':
+            return optimize_function(strategy_name)
+        else:
+            return bot_function(strategy_name,strategy_id,action)
     except BaseException as exception:
         routes_logger.exception(exception)
         return render_template('error.html',title="Error during execution")
