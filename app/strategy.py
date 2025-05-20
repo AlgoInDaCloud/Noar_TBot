@@ -306,6 +306,7 @@ class Optimizer(threading.Thread):
         for i in range(max_iter):
             if self.stop_signal:
                 app_logger.info("Received stop signal : stopping")
+                backtest_writer.close_if_open()
                 break
             print('set_params')
             var_params, identifier = set_random_params()
