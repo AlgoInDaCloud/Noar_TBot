@@ -1,6 +1,7 @@
 /app/logs/*
 /app/datas/strategies/*
 /app/wip/
+/app/templates/wip/
 /.env_var.ini
 
 
