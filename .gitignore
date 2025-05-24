@@ -2,6 +2,7 @@
 /app/datas/strategies/*
 /app/wip/
 /app/templates/wip/
+/app/params/exchanges.ini
 /.env_var.ini
 
 
