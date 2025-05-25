@@ -264,7 +264,7 @@ class Optimizer(threading.Thread):
         rsi_length = [i for i in range(self.parameters['rsi_length_min'], self.parameters['rsi_length_max']+1, 1)]
         rsi_os = [i for i in range(self.parameters['rsi_os_min'], self.parameters['rsi_os_max']+1, 2)]
 
-        max_iter = 100
+        max_iter = 10000
         tested_parameters = []
 
         backtest_writer = CsvRW('app/datas/strategies/martingale/optimizer/'+params['symbol']+'_'+params['timeframe']+'_'+params['start_date'].strftime('%Y-%m-%d %H:%M:%S')+'.log')

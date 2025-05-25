@@ -18,6 +18,9 @@
                 <li class="nav-item">
 		            <a class="nav-link {% if action=='backtest'%}active bg-light{%endif%}"{% if action=='backtest'%} aria-current="page"{%endif%} href="/{{thread.strategy_name}}/{{thread.strategy_id}}/backtest">Backtest</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if action=='optimize'%}active bg-light{%endif%}"{% if action=='optimize'%} aria-current="page"{%endif%} href="/{{strategy_name}}/optimize">Optimize</a>
+                </li>
             </ul>
             <div class="p-2 bg-light border-start border-end border-bottom">
                 <div class="alert {% if thread %}alert-success{% else%}alert-danger{% endif %}">

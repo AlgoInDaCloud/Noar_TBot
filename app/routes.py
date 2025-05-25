@@ -119,6 +119,8 @@ def optimize_function(strategy_name=None):
     current_thread = get_thread_by_name(strategy_name + '-optimizer')
     # Get other running threads
     threads = get_bots_threads()
+    for thread in threading.enumerate():
+        print(thread.name)
 
     #Log file path
     log_file='app/datas/strategies/martingale/optimizer/'+strat_param['symbol']+'_'+strat_param['timeframe']+'_'+strat_param['start_date'].strftime('%Y-%m-%d %H:%M:%S')+'.log'
