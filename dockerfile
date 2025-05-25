@@ -4,9 +4,9 @@ FROM python:3.12.9-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-#    libpcre3 libpcre3-dev \
     nginx \
     supervisor \
+    libnginx-mod-http-modsecurity modsecurity-crs \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install uwsgi
@@ -38,6 +38,11 @@ RUN chown noar:noar /run
 WORKDIR /home/host
 COPY ./start.sh /home/host/start.sh
 RUN chmod +x /home/host/start.sh
+
+RUN sed -i 's|#||g' /etc/nginx/modsecurity_includes.conf
+RUN sed -i 's|IncludeOptional|#IncludeOptional|g'  /usr/share/modsecurity-crs/owasp-crs.load
+RUN sed -i 's|SecRuleEngine DetectionOnly|SecRuleEngine On|' /etc/nginx/modsecurity.conf
+
 CMD ["sh","-c", "/home/host/start.sh"]
 
 # Expose the server port
