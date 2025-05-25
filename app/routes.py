@@ -108,6 +108,9 @@ def bot_function(strategy_name=None,strategy_id=None,action=None):
                                    candles=candles,strategy_name=strategy_name,action=action,strategies=strategies)
 
 #Optimize function
+from io import BytesIO
+import base64
+import matplotlib.pyplot as plt
 def optimize_function(strategy_name=None):
     # Get optimizer parameters
     config_file = f"app/datas/strategies/{strategy_name}/optimizer/parameters.ini"
@@ -156,9 +159,17 @@ def optimize_function(strategy_name=None):
     form.API.data = strat_param['api']
 
     backtests=list(dict())
+    plot_url=""
     if current_thread:
         backtests=current_thread.backtests
         backtests.sort(key=lambda k: k['pnl'], reverse=True)
+        img = BytesIO()
+        plt.plot(range(0,len(current_thread.loss_function)),current_thread.loss_function)
+        plt.savefig(img, format='png')
+        plt.close()
+        img.seek(0)
+        plot_url = base64.b64encode(img.getvalue())
+        plot_url = plot_url.decode()
     elif os.path.exists(log_file):
         reader = CsvRW(log_file)
         reader.read_normal()
@@ -168,7 +179,7 @@ def optimize_function(strategy_name=None):
 
     return render_template('optimizer.html',title=strategy_name.capitalize()+'-optimizer', form=form,
                                    thread=current_thread, threads=sorted(threads,key=attrgetter('name')), backtests=backtests,
-                                   strategy_name=strategy_name,action='optimize',strategies=strategies)
+                                   strategy_name=strategy_name,action='optimize',strategies=strategies,plot=plot_url)
 
 
 @app.route('/')

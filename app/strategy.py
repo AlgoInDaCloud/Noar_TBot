@@ -238,6 +238,7 @@ class Optimizer(threading.Thread):
         self.interrupt=threading.Event()
         self.strategy=None
         self.backtests=list(dict())
+        self.loss_function=list()
 
     def range_float(self, start, stop, step):
         x = start
@@ -326,12 +327,13 @@ class Optimizer(threading.Thread):
             row.update(results)
             backtest_writer.write_line(list(row.values()))
             self.backtests.append(row)
+            if len(self.backtests)>100:self.backtests.pop(0)
             print('calc_neural')
             X = np.array([[value for value in var_params.values()]])
             Y = np.array([results['pnl']])
             neural_net.partial_fit(X[0:1], Y[0:1])
+            self.loss_function.append(neural_net.loss_)
             print(neural_net.predict(X), results['pnl'])
-            print(neural_net.loss_)
 
     def stop(self):
         self.stop_signal = True
