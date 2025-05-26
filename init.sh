@@ -80,6 +80,9 @@ docker compose run --rm --entrypoint "\
     --force-renewal" certbot
 echo
 
+#Adjust permissions for new certificates
+sudo chown -R noar:noar ./data/certbot/conf/
+
 echo "### Reloading web ..."
 docker compose exec web nginx -s reload
 

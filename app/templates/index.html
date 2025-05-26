@@ -20,7 +20,7 @@
                 <ul class="list-group">
                     <li class="list-group-item fw-bold text-success">Max runup : {% if bot.strategy.strategy.get_runup() is not none %}{{(bot.strategy.strategy.get_runup())|round(2)}}%{% else %}None{%endif%}</li>
                     <li class="list-group-item fw-bold text-danger">Max drawdown : {% if bot.strategy.strategy.get_drawdown() is not none %}{{(bot.strategy.strategy.get_drawdown())|round(2)}}%{% else %}None{%endif%}</li>
-                    <li class="list-group-item fw-bold text-danger">Liquidation price : {% if bot.strategy.strategy.position is not none %}{{(bot.strategy.strategy.liquidation_price)|round(2)}}${% else %}None{%endif%}</li>
+                    <li class="list-group-item fw-bold text-danger">Liquidation price : {% if bot.strategy.strategy.liquidation_price is not none %}{{(bot.strategy.strategy.liquidation_price)|round(2)}}${% else %}None{%endif%}</li>
                 </ul>
             </div>
         </div>
