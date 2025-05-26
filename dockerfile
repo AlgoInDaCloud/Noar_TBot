@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install uwsgi
 
 
-#Add user to not run as root
-RUN groupadd noar && \
-    useradd -g noar noar
+#Add user to not run as root / id must be the same as host user having permissions on volumes mounted in docker-compose
+RUN groupadd -g 1002 noar && \
+    useradd -g noar --uid 1002 noar
 
 # Copy requirements file and install dependencies
 COPY ./requirements.txt /home/noar/requirements.txt
