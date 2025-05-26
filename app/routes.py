@@ -105,7 +105,7 @@ def bot_function(strategy_name=None,strategy_id=None,action=None):
 
     return render_template('strategy.html', title=strategy_name.capitalize()+'-bot', form=form,
                                    thread=current_thread, threads=sorted(threads,key=attrgetter('name')), backtest_strategy=backtest_strategy,
-                                   candles=candles,strategy_name=strategy_name,action=action,strategies=strategies)
+                                   candles=candles,strategy_name=strategy_name,strategy_id=strategy_id,action=action,strategies=strategies)
 
 #Optimize function
 from io import BytesIO

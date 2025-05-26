@@ -155,7 +155,7 @@ class Candles:
         if since is None and bars is None:
             strategy_logger.exception('Missing one argument : since or bars required')
             return
-        since = since if since is not None else int(until - bars * self.timeframe_in_seconds)
+        since = int(since) if since is not None else int(until - bars * self.timeframe_in_seconds)
         since -=1 # Retrieve also the "since" candle
         candles_to_fetch = bars if bars is not None else int((until - since) / self.timeframe_in_seconds) #Number of candles to fetch
         lines_fetched = list()  #Initiate variable for API response

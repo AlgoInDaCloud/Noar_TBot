@@ -326,15 +326,19 @@ class Optimizer(threading.Thread):
             row.update(var_params)
             row.update(results)
             backtest_writer.write_line(list(row.values()))
-            self.backtests.append(row)
+            self.backtests.append(row.copy())
             self.backtests.sort(key=lambda k: k['pnl'], reverse=False)
             if len(self.backtests)>100:self.backtests=self.backtests[-100:]
             print('calc_neural')
             X = np.array([[value for value in var_params.values()]])
             Y = np.array([results['pnl']])
+            if len(tested_parameters)>10:
+                print(neural_net.predict(X), results['pnl'])
+                if len(tested_parameters)%10==0:
+                    backtest_writer.write_to_csv('a', keys)
             neural_net.partial_fit(X[0:1], Y[0:1])
             self.loss_function.append(neural_net.loss_)
-            print(neural_net.predict(X), results['pnl'])
+
 
     def stop(self):
         self.stop_signal = True

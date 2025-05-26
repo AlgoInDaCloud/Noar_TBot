@@ -41,6 +41,7 @@ class Api:
             if self.exchange.has['fetchOHLCV']:
                 params={"until":int(until*1000)} if until is not None else {}
                 raw_history=self.exchange.fetch_ohlcv(symbol, timeframe,int(since*1000) if until is None else None,limit=limit,params=params)
+
                 if len(raw_history)>0:
                     keys = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
                     for row in raw_history:

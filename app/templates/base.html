@@ -35,6 +35,7 @@
                                 <li><a class="dropdown-item" href="/{{running_strat.strategy_name}}/{{running_strat.strategy_id}}">{{running_strat.strategy_name.capitalize()}}-{{running_strat.strategy_id}}</a></li>
                         {% endfor %}
                                 <li><a class="dropdown-item" href="/{{strategy|lower}}/{{strategies[strategy]['new_id']}}">New {{strategy|lower}} bot</a></li>
+                                <li><a class="dropdown-item" href="/{{strategy|lower}}/optimize">Optimizer</a></li>
                             </ul>
                         </li>
                     {% endfor %}
