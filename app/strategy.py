@@ -327,7 +327,8 @@ class Optimizer(threading.Thread):
             row.update(results)
             backtest_writer.write_line(list(row.values()))
             self.backtests.append(row)
-            if len(self.backtests)>100:self.backtests.pop(0)
+            self.backtests.sort(key=lambda k: k['pnl'], reverse=False)
+            if len(self.backtests)>100:self.backtests=self.backtests[-100:]
             print('calc_neural')
             X = np.array([[value for value in var_params.values()]])
             Y = np.array([results['pnl']])

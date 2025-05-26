@@ -161,8 +161,7 @@ def optimize_function(strategy_name=None):
     backtests=list(dict())
     plot_url=""
     if current_thread:
-        backtests=current_thread.backtests
-        backtests.sort(key=lambda k: k['pnl'], reverse=True)
+        backtests=current_thread.backtests[::-1]
         img = BytesIO()
         plt.plot(range(0,len(current_thread.loss_function)),current_thread.loss_function)
         plt.savefig(img, format='png')
