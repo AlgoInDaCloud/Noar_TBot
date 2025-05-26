@@ -36,6 +36,10 @@ docker compose run --rm --entrypoint "\
     -subj '/CN=localhost'" certbot
 echo
 
+#Set correct permissions for user
+sudo chown -R noar:noar ./data/certbot/conf/
+sudo chown -R noar:noar /var/log/webapp/
+sudo chown -R noar:noar /var/log/nginx/
 
 echo "### Starting nginx ..."
 docker compose up --force-recreate -d web
